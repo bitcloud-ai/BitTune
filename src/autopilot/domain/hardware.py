@@ -14,6 +14,8 @@ AVAILABLE_EXCEEDS_TOTAL = "available capacity cannot exceed total capacity"
 FREE_EXCEEDS_TOTAL = "free GPU memory cannot exceed total GPU memory"
 DUPLICATE_CAPABILITY = "hardware capabilities must be unique"
 GPU_CAPABILITY_MISMATCH = "single-GPU capabilities require exactly one NVIDIA accelerator"
+DOCKER_GPU_CAPABILITY_MISMATCH = "Docker GPU capability requires a passed probe and single GPU"
+VLLM_CAPABILITY_MISMATCH = "vLLM capability requires Docker GPU readiness without blockers"
 
 
 class HostOs(StrictModel):
@@ -112,4 +114,15 @@ class HardwarePassport(StrictModel):
         gpu_capabilities = {"single_nvidia_gpu", "docker_gpu", "vllm_single_gpu_candidate"}
         if gpu_capabilities.intersection(self.capabilities) and len(self.accelerators) != 1:
             raise ValueError(GPU_CAPABILITY_MISMATCH)
+        capability_set = set(self.capabilities)
+        if "docker_gpu" in capability_set and (
+            "single_nvidia_gpu" not in capability_set
+            or self.runtime.gpu_container_probe != "passed"
+        ):
+            raise ValueError(DOCKER_GPU_CAPABILITY_MISMATCH)
+        has_blocker = any(issue.severity == "blocker" for issue in self.issues)
+        if "vllm_single_gpu_candidate" in capability_set and (
+            not {"single_nvidia_gpu", "docker_gpu"}.issubset(capability_set) or has_blocker
+        ):
+            raise ValueError(VLLM_CAPABILITY_MISMATCH)
         return self

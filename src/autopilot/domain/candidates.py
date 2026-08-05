@@ -1,8 +1,8 @@
 """Single-GPU vLLM candidate contract."""
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from autopilot.domain.base import NonEmptyStr, StrictModel
 from autopilot.domain.identifiers import (
@@ -17,6 +17,19 @@ from autopilot.domain.provenance import EstimatedProvenance
 from autopilot.domain.workloads import WorkloadSpec
 
 CANDIDATE_CONTEXT_EXCEEDED = "prompt and output tokens exceed candidate max_model_len"
+INVALID_VLLM_SCHEDULER_BATCH = (
+    "max_num_batched_tokens must cover max_model_len when chunked prefill is disabled"
+)
+
+
+def vllm_scheduler_parameters_are_compatible(
+    *,
+    max_model_len: int,
+    max_num_batched_tokens: int,
+    enable_chunked_prefill: bool,
+) -> bool:
+    """Return whether vLLM can schedule a full prefill under the fixed MVP rule."""
+    return enable_chunked_prefill or max_num_batched_tokens >= max_model_len
 
 
 class VllmTuningSpec(StrictModel):
@@ -27,6 +40,16 @@ class VllmTuningSpec(StrictModel):
     max_num_batched_tokens: Literal[2048, 4096, 8192, 16384]
     enable_chunked_prefill: bool
     trust_remote_code: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_scheduler_batch(self) -> Self:
+        if not vllm_scheduler_parameters_are_compatible(
+            max_model_len=self.max_model_len,
+            max_num_batched_tokens=self.max_num_batched_tokens,
+            enable_chunked_prefill=self.enable_chunked_prefill,
+        ):
+            raise ValueError(INVALID_VLLM_SCHEDULER_BATCH)
+        return self
 
 
 class DeploymentCandidate(StrictModel):

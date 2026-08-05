@@ -9,6 +9,7 @@ from autopilot.domain.candidates import (
     validate_candidate_workload,
 )
 from autopilot.domain.hardware import (
+    EnvironmentIssue,
     HardwarePassport,
     HostCpu,
     HostMemory,
@@ -59,6 +60,55 @@ def test_hardware_capability_requires_one_gpu(
         )
 
 
+def test_docker_gpu_capability_requires_passed_probe(
+    measured_provenance: MeasuredProvenance,
+) -> None:
+    common = {
+        "hardware_passport_id": HardwarePassportId.new(),
+        "captured_at": datetime.now(UTC),
+        "os": HostOs(name="Ubuntu", version="24.04", kernel="6.8", architecture="x86_64"),
+        "cpu": HostCpu(model="test", logical_cores=16),
+        "memory": HostMemory(total_bytes=128, available_bytes=64),
+        "storage": (StorageVolume(volume_id="models", total_bytes=1_000, available_bytes=500),),
+        "accelerators": (
+            {
+                "name": "NVIDIA GeForce RTX 5090",
+                "uuid": "GPU-1234567890abcdef",
+                "memory_total_bytes": 32_000_000_000,
+                "memory_free_bytes": 31_000_000_000,
+                "temperature_celsius": 30,
+                "utilization_percent": 0,
+            },
+        ),
+        "runtime": RuntimeVersions(
+            driver_version="test",
+            docker_version="test",
+            compose_version="test",
+            nvidia_container_toolkit_version="test",
+            gpu_container_probe="failed",
+        ),
+        "provenance": measured_provenance,
+    }
+
+    with pytest.raises(ValidationError, match="passed probe"):
+        HardwarePassport(
+            capabilities=("single_nvidia_gpu", "docker_gpu"),
+            **common,
+        )
+
+    with pytest.raises(ValidationError, match="without blockers"):
+        HardwarePassport(
+            runtime=common["runtime"].model_copy(update={"gpu_container_probe": "passed"}),
+            capabilities=(
+                "single_nvidia_gpu",
+                "docker_gpu",
+                "vllm_single_gpu_candidate",
+            ),
+            issues=(EnvironmentIssue(code="DISK_FULL", severity="blocker", message="disk full"),),
+            **{key: value for key, value in common.items() if key != "runtime"},
+        )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -83,6 +133,17 @@ def test_vllm_tuning_spec_enforces_mvp_boundary(field: str, value: object) -> No
 
     with pytest.raises(ValidationError):
         VllmTuningSpec.model_validate(payload)
+
+
+def test_vllm_tuning_rejects_full_prefill_larger_than_scheduler_batch() -> None:
+    with pytest.raises(ValidationError, match="chunked prefill is disabled"):
+        VllmTuningSpec(
+            max_model_len=8_192,
+            gpu_memory_utilization=0.9,
+            max_num_seqs=8,
+            max_num_batched_tokens=2_048,
+            enable_chunked_prefill=False,
+        )
 
 
 def test_candidate_rejects_workload_longer_than_model_context(
