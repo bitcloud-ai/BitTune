@@ -354,15 +354,15 @@ visible_tools = registry.resolve(
 
 | 阶段 | AI 可见 Tool |
 |---|---|
-| `requirements` | `describe_mvp_capabilities`、`submit_requirements` |
-| `environment` | `inspect_environment`、`get_environment_report` |
-| `planning` | `inspect_model`、`estimate_capacity`、`generate_candidates` |
-| `approval` | `request_approval`、`revise_plan` |
-| `deployment` | `preview_deployment`、`start_deployment`、`get_job_status`、`stop_deployment` |
-| `benchmark` | `create_benchmark_plan`、`start_benchmark`、`get_job_status`、`get_benchmark_result` |
-| `optimization` | `create_optimization_plan`、`start_optimization`、`get_job_status`、`get_best_trials` |
-| `verification` | `compare_trials`、`verify_candidates`、`propose_champion` |
-| `report` | `get_evidence_summary`、`generate_report` |
+| `requirements` | `get_mvp_capabilities_result`、`create_experiment_plan` |
+| `environment` | `create_environment_plan`、`start_environment_inspection`、`get_environment_status`、`get_environment_result`、`cancel_environment_inspection` |
+| `planning` | `create_capacity_plan` |
+| `approval` | `start_approval_request`、`get_approval_status` |
+| `deployment` | `create_deployment_plan`、`start_deployment`、`get_deployment_status`、`get_deployment_result`、`cancel_deployment` |
+| `benchmark` | `create_benchmark_plan`、`start_benchmark`、`get_benchmark_status`、`get_benchmark_result`、`cancel_benchmark` |
+| `optimization` | `create_optimization_plan`、`start_optimization`、`get_optimization_status`、`get_optimization_result`、`cancel_optimization` |
+| `verification` | `get_trial_comparison_result`、`create_champion_plan` |
+| `report` | `get_evidence_result` |
 
 AI 永远看不到：
 

@@ -234,6 +234,7 @@ Adapter 编译为具体 API/CLI/容器参数
 ### 9.1 Docker Compose 常驻服务
 
 - `autopilot-api`：FastAPI + LangGraph；
+- `autopilot-worker`：单 GPU PostgreSQL Lease Queue Worker，是唯一连接 Host Runner 的控制面服务；
 - `postgres`：Graph Checkpoint、业务元数据、Optuna Storage、MLflow Backend；
 - `mlflow`：实验查询和工件元数据；
 - `opa`：策略判定；

@@ -97,7 +97,7 @@ package autopilot.authz
 default allow := false
 
 allow if {
-  input.action == "inspect_environment"
+  input.action == "start_environment_inspection"
   input.subject.role in {"viewer", "operator", "admin"}
 }
 

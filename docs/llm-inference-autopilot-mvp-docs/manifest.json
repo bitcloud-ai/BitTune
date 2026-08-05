@@ -7,15 +7,15 @@
   "documents": [
     {
       "file": "01-MVP总体设计与技术选型.md",
-      "bytes": 14087,
+      "bytes": 14170,
       "lines": 408,
-      "sha256": "234d477abd2a555444e560dddec740e1fd0485fea994351e03376e6b8b20ad3d"
+      "sha256": "199b56feafa83000d778b2019e80c84ae405539620ea52fba9ef05e95ececf4f"
     },
     {
       "file": "02-Agent工作流与能力编排设计.md",
-      "bytes": 11140,
+      "bytes": 11299,
       "lines": 539,
-      "sha256": "ae70acdc41ee48a31909c2f4552be0f77defcabc8e1dd6e193bebc38c736e5aa"
+      "sha256": "fae612515a87786dd88683d70421bf0aaa4be5a871dc319117c4ad66de03a703"
     },
     {
       "file": "03-能力包与Tool转换设计.md",
@@ -25,15 +25,15 @@
     },
     {
       "file": "04-七个环节能力与接口详细设计.md",
-      "bytes": 18612,
-      "lines": 999,
-      "sha256": "9d75d29dd99bea825a96e0311e587eeeadcdaf6b2b8ed838a29f0e501c3c86fe"
+      "bytes": 18875,
+      "lines": 978,
+      "sha256": "03f9e07b8014f2ebe8c2e367f6a1e6c4c194505d3fad7388329db61cbfd2b581"
     },
     {
       "file": "05-系统技术架构与数据设计.md",
-      "bytes": 12643,
-      "lines": 563,
-      "sha256": "4d97f9e94e21f213c97a39d399dc147f1854dd3fcc3efa0e2e90e3807fb07ef6"
+      "bytes": 13515,
+      "lines": 587,
+      "sha256": "54f019c0649122ab4cb41e47d73f79938a37e5c7a5698a6b00075bbd5911c861"
     },
     {
       "file": "06-可扩展性与动态工具可见性设计.md",
@@ -43,9 +43,9 @@
     },
     {
       "file": "07-安全执行与Docker部署设计.md",
-      "bytes": 7228,
+      "bytes": 7237,
       "lines": 380,
-      "sha256": "f2ce3a11511f7c373d5d789a38b605b6fc09ba5298f4b866670627a40acef2d6"
+      "sha256": "3e4cbd914c4bb1d1e54ff95447c83f7ea66afff10ed8814a53d57b511534366e"
     },
     {
       "file": "08-测试验收与实施路线.md",
@@ -55,15 +55,15 @@
     },
     {
       "file": "09-文档审查与准确性报告.md",
-      "bytes": 8681,
-      "lines": 451,
-      "sha256": "000cd5661d7c80d2dd1ac3be9657082f36cff34ab094a195f83f80ccb3d9cd57"
+      "bytes": 8944,
+      "lines": 433,
+      "sha256": "4c821b4c37ea932b8cab02d012057888fe6a5750abb384070615fe1d4ec5cba1"
     },
     {
       "file": "README.md",
-      "bytes": 6810,
+      "bytes": 6826,
       "lines": 145,
-      "sha256": "bdcb673c23254661b1836dd6883d963f2a38e21e0a9c2b7cd842168a8b197e75"
+      "sha256": "a4d38d14cecc968a4abe4faf948d101d3b5a2188ef3cc9f11a2f810de4643a39"
     }
   ]
 }
