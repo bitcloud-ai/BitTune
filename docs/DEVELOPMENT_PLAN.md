@@ -67,7 +67,9 @@ MVP 完成必须同时满足：
 
 - SQLAlchemy 2 实体、Repository Port 和 Alembic 初始 Revision；
 - PostgreSQL Lease Queue、Job 状态机、幂等记录、Event 和追加式 Audit；
-- 本地 Artifact Store，包括根目录约束、符号链接逃逸防护、SHA-256 和元数据；
+- PostgreSQL 权威时钟、Lease Fencing Token、`waiting_approval` 过期恢复和持久化取消请求；
+- 同 Experiment Plan/Artifact 组合外键和 Provider Job 对账字段；
+- 本地 Artifact Store，包括根目录约束、符号链接逃逸防护、SHA-256、原子发布、同内容幂等重放和数据库元数据；
 - PostgreSQL 集成测试。
 
 验收：进程重启后能恢复 Job 与租约，重复幂等请求不会创建第二个 Job。
@@ -174,6 +176,9 @@ uv run pytest tests/unit tests/contract
 - M1 已完成；
 - M2 已完成：vLLM/EvalScope Compiler、Benchmark Normalizer、封闭 Search Space、确定性
   Champion/Fallback Policy、Golden Test、公共 Schema 和能力包 Manifest 已落地，标准检查已通过；
-- M3 是已确定的下一阶段，尚未开始；
+- M3 已完成实现和非 PostgreSQL 验证：SQLAlchemy/Alembic、Lease Queue、Fencing、幂等、
+  Event/Audit、取消请求及 Artifact Store 已落地；Artifact 重启恢复测试已通过；
+- M3 的 6 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
+  `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
 - M4～M9 未开始；
 - G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。

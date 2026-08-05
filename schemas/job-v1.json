@@ -293,6 +293,19 @@
   },
   "additionalProperties": false,
   "properties": {
+    "cancel_requested_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cancel Requested At"
+    },
     "ended_at": {
       "anyOf": [
         {
@@ -339,6 +352,20 @@
         }
       ],
       "default": null
+    },
+    "provider_job_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Job Id"
     },
     "result_artifact": {
       "anyOf": [

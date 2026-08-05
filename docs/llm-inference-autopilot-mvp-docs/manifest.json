@@ -31,9 +31,9 @@
     },
     {
       "file": "05-系统技术架构与数据设计.md",
-      "bytes": 13515,
-      "lines": 587,
-      "sha256": "54f019c0649122ab4cb41e47d73f79938a37e5c7a5698a6b00075bbd5911c861"
+      "bytes": 15528,
+      "lines": 618,
+      "sha256": "908a2d0ba1b99eed590b3b4c04fb40aaba005174f723f391f9ba925416491390"
     },
     {
       "file": "06-可扩展性与动态工具可见性设计.md",
@@ -43,15 +43,15 @@
     },
     {
       "file": "07-安全执行与Docker部署设计.md",
-      "bytes": 7237,
-      "lines": 380,
-      "sha256": "3e4cbd914c4bb1d1e54ff95447c83f7ea66afff10ed8814a53d57b511534366e"
+      "bytes": 7714,
+      "lines": 382,
+      "sha256": "2d200e0e4629b3c1556bac46814aee7579fb82635e069d26512f8b5a6c29b564"
     },
     {
       "file": "08-测试验收与实施路线.md",
-      "bytes": 7501,
-      "lines": 443,
-      "sha256": "dee5b40d159ede6125acde84dcb9c6a5651d0e5c24e4c27be4fe224976e8cea6"
+      "bytes": 8163,
+      "lines": 455,
+      "sha256": "60f3d8918096a9c47fe276b14df704524bfcb1fbe1e7f1c2111eb6ef4ad1b683"
     },
     {
       "file": "09-文档审查与准确性报告.md",

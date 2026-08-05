@@ -5,7 +5,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from autopilot.domain.artifacts import ArtifactRef
-from autopilot.domain.base import LongText, StrictModel, UtcDatetime
+from autopilot.domain.base import LongText, NonEmptyStr, StrictModel, UtcDatetime
 from autopilot.domain.enums import JobKind, JobStatus
 from autopilot.domain.errors import ErrorEnvelope
 from autopilot.domain.identifiers import ExperimentId, JobId, PlanId
@@ -61,9 +61,11 @@ class JobRecord(StrictModel):
     kind: JobKind
     status: JobStatus
     progress: JobProgress | None = None
+    provider_job_id: NonEmptyStr | None = None
     submitted_at: UtcDatetime
     started_at: UtcDatetime | None = None
     ended_at: UtcDatetime | None = None
+    cancel_requested_at: UtcDatetime | None = None
     result_artifact: ArtifactRef | None = None
     error: ErrorEnvelope | None = None
 
@@ -89,6 +91,11 @@ class JobRecord(StrictModel):
             raise ValueError(INVALID_JOB_TIMELINE)
         timeline_start = self.started_at or self.submitted_at
         if self.ended_at is not None and self.ended_at < timeline_start:
+            raise ValueError(INVALID_JOB_TIMELINE)
+        if self.cancel_requested_at is not None and (
+            self.cancel_requested_at < self.submitted_at
+            or (self.ended_at is not None and self.cancel_requested_at > self.ended_at)
+        ):
             raise ValueError(INVALID_JOB_TIMELINE)
         if self.status is JobStatus.SUCCEEDED:
             if self.result_artifact is None or self.error is not None:

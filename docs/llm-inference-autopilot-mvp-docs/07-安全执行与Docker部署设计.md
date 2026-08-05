@@ -306,14 +306,16 @@ Runner 和 EvalScope Adapter 均实施限制，不能只依赖 AI。
 
 ## 14. 超时和看门狗
 
-- Job Lease；
+- Job Lease 的获取、Heartbeat 和过期判定使用 PostgreSQL `clock_timestamp()`，不信任 Worker 提交的时间；
+- 每次领取 Job 都递增 Fencing Token，旧 Token 的 Heartbeat、进度和终态写入一律拒绝；
+- `waiting_approval` 保留 Lease；Worker 崩溃或 Lease 过期后，新 Worker 可以重新领取，但执行前仍须重新校验审批、Plan Hash、策略和预算；
 - Runner Heartbeat；
 - 容器 Startup Timeout；
 - Benchmark Deadline；
 - Trial Deadline；
 - Experiment Global Deadline；
 - GPU Lock Lease；
-- 取消时先停止发送新请求，再等待安全窗口，最后终止。
+- 取消请求先持久化并追加 Event；Worker 观察到请求后停止发送新请求、等待安全窗口、执行清理，最后写入 `cancelled` 终态。
 
 ---
 

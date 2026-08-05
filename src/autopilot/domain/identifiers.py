@@ -94,6 +94,18 @@ class ToolSetId(StableId):
     prefix = "toolset"
 
 
+class WorkerId(StableId):
+    prefix = "worker"
+
+
+class EventId(StableId):
+    prefix = "event"
+
+
+class AuditEventId(StableId):
+    prefix = "audit"
+
+
 class Sha256Digest(RootModel[str]):
     """Lowercase SHA-256 digest with an explicit algorithm prefix."""
 
