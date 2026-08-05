@@ -1,0 +1,44 @@
+{
+  "validated_at": "2026-08-05",
+  "documents_read": [
+    "01-MVP总体设计与技术选型.md",
+    "02-Agent工作流与能力编排设计.md",
+    "03-能力包与Tool转换设计.md",
+    "04-七个环节能力与接口详细设计.md",
+    "05-系统技术架构与数据设计.md",
+    "06-可扩展性与动态工具可见性设计.md",
+    "07-安全执行与Docker部署设计.md",
+    "08-测试验收与实施路线.md",
+    "09-文档审查与准确性报告.md",
+    "README.md"
+  ],
+  "document_count": 10,
+  "total_lines": 4875,
+  "total_bytes": 105511,
+  "missing_readme_links": [],
+  "unbalanced_code_fences": [],
+  "checks": {
+    "all_markdown_files_read": true,
+    "readme_links_resolve": true,
+    "code_fences_balanced": true,
+    "langgraph_selected": true,
+    "single_gpu_mvp_scope_present": true,
+    "docker_not_kubernetes_for_mvp": true,
+    "arbitrary_shell_forbidden": true,
+    "mlflow_role_is_evidence_not_optimizer": true,
+    "opa_enforced_by_gateway": true,
+    "host_runner_separated": true,
+    "estimated_and_measured_distinguished": true,
+    "dynamic_tool_visibility_designed": true,
+    "long_job_protocol_present": true,
+    "seven_external_projects_documented": true
+  },
+  "passed": true,
+  "manual_review_document": "09-文档审查与准确性报告.md",
+  "known_live_validation_items": [
+    "RTX 5090 driver / NVIDIA Container Toolkit / pinned vLLM image compatibility",
+    "Pinned llm-d Planner commit and its behavior with custom 32GB GPU memory input",
+    "Pinned EvalScope Python API, progress reporting and result field mapping",
+    "Target model kernels and quantization compatibility on RTX 5090"
+  ]
+}

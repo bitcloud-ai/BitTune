@@ -1,0 +1,69 @@
+{
+  "name": "llm-inference-autopilot-mvp-docs",
+  "version": "1.0.0",
+  "baseline_date": "2026-08-05",
+  "hardware_baseline": "single NVIDIA GeForce RTX 5090 32GB",
+  "deployment_baseline": "Linux + Docker Compose + Host Runner",
+  "documents": [
+    {
+      "file": "01-MVP总体设计与技术选型.md",
+      "bytes": 14087,
+      "lines": 408,
+      "sha256": "234d477abd2a555444e560dddec740e1fd0485fea994351e03376e6b8b20ad3d"
+    },
+    {
+      "file": "02-Agent工作流与能力编排设计.md",
+      "bytes": 11140,
+      "lines": 539,
+      "sha256": "ae70acdc41ee48a31909c2f4552be0f77defcabc8e1dd6e193bebc38c736e5aa"
+    },
+    {
+      "file": "03-能力包与Tool转换设计.md",
+      "bytes": 11042,
+      "lines": 547,
+      "sha256": "cfc73ce4437522739a619dff6a59acb188bde0131595bd8b67aea485c8c8793c"
+    },
+    {
+      "file": "04-七个环节能力与接口详细设计.md",
+      "bytes": 18612,
+      "lines": 999,
+      "sha256": "9d75d29dd99bea825a96e0311e587eeeadcdaf6b2b8ed838a29f0e501c3c86fe"
+    },
+    {
+      "file": "05-系统技术架构与数据设计.md",
+      "bytes": 12643,
+      "lines": 563,
+      "sha256": "4d97f9e94e21f213c97a39d399dc147f1854dd3fcc3efa0e2e90e3807fb07ef6"
+    },
+    {
+      "file": "06-可扩展性与动态工具可见性设计.md",
+      "bytes": 7767,
+      "lines": 400,
+      "sha256": "9e0d416c1b947d3dc8620929e9199d67f1a86b3dd52b3cd976753a06b0426cc2"
+    },
+    {
+      "file": "07-安全执行与Docker部署设计.md",
+      "bytes": 7228,
+      "lines": 380,
+      "sha256": "f2ce3a11511f7c373d5d789a38b605b6fc09ba5298f4b866670627a40acef2d6"
+    },
+    {
+      "file": "08-测试验收与实施路线.md",
+      "bytes": 7501,
+      "lines": 443,
+      "sha256": "dee5b40d159ede6125acde84dcb9c6a5651d0e5c24e4c27be4fe224976e8cea6"
+    },
+    {
+      "file": "09-文档审查与准确性报告.md",
+      "bytes": 8681,
+      "lines": 451,
+      "sha256": "000cd5661d7c80d2dd1ac3be9657082f36cff34ab094a195f83f80ccb3d9cd57"
+    },
+    {
+      "file": "README.md",
+      "bytes": 6810,
+      "lines": 145,
+      "sha256": "bdcb673c23254661b1836dd6883d963f2a38e21e0a9c2b7cd842168a8b197e75"
+    }
+  ]
+}
