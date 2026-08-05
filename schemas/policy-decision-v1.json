@@ -1,0 +1,66 @@
+{
+  "$defs": {
+    "PolicyReasonCode": {
+      "enum": [
+        "ALLOW",
+        "POLICY_DENIED",
+        "TOOL_CONTEXT_DENIED",
+        "L3_FORBIDDEN",
+        "BUDGET_EXCEEDED",
+        "APPROVAL_REQUIRED",
+        "APPROVAL_IDENTITY_DENIED",
+        "APPROVAL_MISMATCH",
+        "APPROVAL_EXPIRED"
+      ],
+      "title": "PolicyReasonCode",
+      "type": "string"
+    },
+    "PolicyRequirements": {
+      "additionalProperties": false,
+      "properties": {
+        "human_approval": {
+          "title": "Human Approval",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "human_approval"
+      ],
+      "title": "PolicyRequirements",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allow": {
+      "title": "Allow",
+      "type": "boolean"
+    },
+    "decision_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "reason_code": {
+      "$ref": "#/$defs/PolicyReasonCode"
+    },
+    "requirements": {
+      "$ref": "#/$defs/PolicyRequirements"
+    },
+    "schema_version": {
+      "const": "policy-decision/v1",
+      "default": "policy-decision/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "allow",
+    "reason_code",
+    "requirements",
+    "decision_id"
+  ],
+  "title": "PolicyDecision",
+  "type": "object"
+}

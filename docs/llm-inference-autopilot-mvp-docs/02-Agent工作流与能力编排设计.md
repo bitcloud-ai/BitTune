@@ -309,9 +309,17 @@ Interrupt Payload：
 
 ```json
 {
-  "approval_id": "apr_01J...",
+  "approval_id": "approval_01...",
+  "experiment_id": "exp_01...",
+  "plan_id": "plan_01...",
+  "plan_hash": "sha256:...",
   "action": "start_deployment",
   "risk_level": "L2",
+  "requester": {
+    "kind": "human",
+    "user_id": "user_01...",
+    "role": "operator"
+  },
   "summary": "将停止当前 vLLM 容器并以新参数启动",
   "resource_impact": {
     "gpu": "GPU-0 exclusive",
@@ -326,14 +334,18 @@ Interrupt Payload：
 
 ```json
 {
-  "decision": "approve",
-  "actor": "user-id",
-  "comment": "允许本次部署",
-  "approved_plan_hash": "sha256:..."
+  "decision": "approved",
+  "decided_by": {
+    "kind": "human",
+    "user_id": "user_02...",
+    "role": "admin"
+  },
+  "comment": "允许本次部署"
 }
 ```
 
-审批绑定 Plan Hash，计划改变后必须重新审批。
+审批同时绑定 Experiment、Plan ID、Plan Hash 和 Action。只有与 Requester 不同的 human admin 能决定审批；
+Service 身份不能审批。计划或 Action 改变后必须创建新 Plan 并重新审批。
 
 ---
 

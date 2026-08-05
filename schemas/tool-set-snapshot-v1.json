@@ -1,0 +1,232 @@
+{
+  "$defs": {
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "ExperimentPhase": {
+      "enum": [
+        "requirements",
+        "environment",
+        "planning",
+        "approval",
+        "deployment",
+        "benchmark",
+        "optimization",
+        "verification",
+        "report",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ExperimentPhase",
+      "type": "string"
+    },
+    "HumanSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human",
+          "default": "human",
+          "title": "Kind",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/UserRole"
+        },
+        "user_id": {
+          "$ref": "#/$defs/UserId"
+        }
+      },
+      "required": [
+        "user_id",
+        "role"
+      ],
+      "title": "HumanSubject",
+      "type": "object"
+    },
+    "RiskLevel": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "ServiceSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "service",
+          "default": "service",
+          "title": "Kind",
+          "type": "string"
+        },
+        "service_name": {
+          "pattern": "^[a-z][a-z0-9-]{2,63}$",
+          "title": "Service Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_name"
+      ],
+      "title": "ServiceSubject",
+      "type": "object"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "Subject": {
+      "discriminator": {
+        "mapping": {
+          "human": "#/$defs/HumanSubject",
+          "service": "#/$defs/ServiceSubject"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HumanSubject"
+        },
+        {
+          "$ref": "#/$defs/ServiceSubject"
+        }
+      ]
+    },
+    "ToolName": {
+      "description": "Agent-visible tool name restricted to the public action vocabulary.",
+      "title": "ToolName",
+      "type": "string"
+    },
+    "ToolSetEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/ToolName"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/RiskLevel"
+        },
+        "schema_version": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9-]*/v[1-9][0-9]*$",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schema_version",
+        "risk_level"
+      ],
+      "title": "ToolSetEntry",
+      "type": "object"
+    },
+    "ToolSetId": {
+      "title": "ToolSetId",
+      "type": "string"
+    },
+    "UserId": {
+      "title": "UserId",
+      "type": "string"
+    },
+    "UserRole": {
+      "enum": [
+        "viewer",
+        "operator",
+        "admin"
+      ],
+      "title": "UserRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "enabled_feature_flags": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Enabled Feature Flags",
+      "type": "array"
+    },
+    "enabled_providers": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Enabled Providers",
+      "type": "array"
+    },
+    "experiment_id": {
+      "$ref": "#/$defs/ExperimentId"
+    },
+    "hardware_capabilities": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Hardware Capabilities",
+      "type": "array"
+    },
+    "phase": {
+      "$ref": "#/$defs/ExperimentPhase"
+    },
+    "policy_decision_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Policy Decision Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "tool-set-snapshot/v1",
+      "default": "tool-set-snapshot/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject": {
+      "$ref": "#/$defs/Subject"
+    },
+    "tool_set_id": {
+      "$ref": "#/$defs/ToolSetId"
+    },
+    "tool_set_version": {
+      "$ref": "#/$defs/Sha256Digest"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/ToolSetEntry"
+      },
+      "title": "Tools",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tool_set_id",
+    "tool_set_version",
+    "experiment_id",
+    "subject",
+    "phase",
+    "hardware_capabilities",
+    "enabled_providers",
+    "enabled_feature_flags",
+    "tools",
+    "policy_decision_ids",
+    "created_at"
+  ],
+  "title": "ToolSetSnapshot",
+  "type": "object"
+}

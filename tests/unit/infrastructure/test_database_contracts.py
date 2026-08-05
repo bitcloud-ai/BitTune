@@ -6,12 +6,15 @@ from sqlalchemy.schema import CreateTable
 
 from autopilot.infrastructure.database.base import Base
 from autopilot.infrastructure.database.models import (
+    ApprovalRow,
     ArtifactRow,
     AuditEventRow,
     EventRow,
     IdempotencyRow,
+    JobAuthorizationRow,
     JobRow,
     PlanRow,
+    ToolSetSnapshotRow,
 )
 from autopilot.infrastructure.database.repositories import claimable_job_statement
 from autopilot.infrastructure.database.session import create_postgres_engine
@@ -21,9 +24,12 @@ def test_metadata_contains_required_m3_tables_without_artifact_blob() -> None:
     assert set(Base.metadata.tables) == {
         "app.experiments",
         "app.plans",
+        "app.approvals",
+        "app.toolset_snapshots",
         "app.jobs",
         "app.artifacts",
         "app.idempotency_records",
+        "app.job_authorizations",
         "app.events",
         "app.audit_events",
     }
@@ -44,8 +50,47 @@ def test_job_ddl_uses_postgresql_jsonb_timezone_and_database_constraints() -> No
     assert "fk_jobs_experiment_result_artifact" in ddl
 
 
+def test_approval_ddl_enforces_l2_binding_lifecycle_and_actor_separation() -> None:
+    ddl = str(CreateTable(ApprovalRow.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "TIMESTAMP WITH TIME ZONE" in ddl
+    assert "ck_approvals_approval_schema_version" in ddl
+    assert "ck_approvals_approval_l2_only" in ddl
+    assert "ck_approvals_approval_human_requester" in ddl
+    assert "ck_approvals_approval_decision_metadata" in ddl
+    assert "ck_approvals_approval_no_self_decision" in ddl
+    assert "fk_approvals_plan_material" in ddl
+    assert "uq_approvals_plan_hash_action" in ddl
+
+
+def test_gateway_evidence_ddl_enforces_composite_authorization_bindings() -> None:
+    toolset_ddl = str(
+        CreateTable(ToolSetSnapshotRow.__table__).compile(dialect=postgresql.dialect())
+    )
+    authorization_ddl = str(
+        CreateTable(JobAuthorizationRow.__table__).compile(dialect=postgresql.dialect())
+    )
+
+    assert "JSONB" in toolset_ddl
+    assert "ck_toolset_snapshots_toolset_snapshot_subject" in toolset_ddl
+    assert "fk_job_authorizations_plan_material" in authorization_ddl
+    assert "fk_job_authorizations_approval" in authorization_ddl
+    assert "fk_job_authorizations_toolset" in authorization_ddl
+    assert "fk_job_authorizations_idempotency_material" in authorization_ddl
+    assert "DEFERRABLE INITIALLY DEFERRED" in authorization_ddl
+
+
 def test_persisted_m3_contracts_store_schema_versions_and_composite_ownership() -> None:
-    for row_type in (PlanRow, ArtifactRow, JobRow, IdempotencyRow, EventRow, AuditEventRow):
+    for row_type in (
+        PlanRow,
+        ArtifactRow,
+        ToolSetSnapshotRow,
+        JobRow,
+        IdempotencyRow,
+        JobAuthorizationRow,
+        EventRow,
+        AuditEventRow,
+    ):
         assert "schema_version" in row_type.__table__.columns
 
     job_foreign_keys = {constraint.name for constraint in JobRow.__table__.foreign_key_constraints}
@@ -96,3 +141,22 @@ def test_initial_migration_enforces_immutable_ledger_tables_and_plans() -> None:
     assert "plans_immutable_material" in migration
     assert "artifact_schema_version" in migration
     assert 'name="ck_jobs_' not in migration
+
+
+def test_approval_migration_enforces_single_terminal_transition_and_no_deletion() -> None:
+    migration = (
+        Path(__file__).parents[3] / "alembic" / "versions" / "20260806_0002_approval_persistence.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'down_revision: str | None = "20260805_0001"' in migration
+    assert "enforce_approval_lifecycle" in migration
+    assert "terminal Approval records are immutable" in migration
+    assert "approvals_no_truncate" in migration
+    assert "schema_version = 'approval/v2'" in migration
+    assert "requester_kind = 'human'" in migration
+    assert "decided_by_role = 'admin'" in migration
+    assert "uq_approvals_plan_hash_action" in migration
+    assert "fk_approvals_plan_material" in migration
+    assert "toolset_snapshots_append_only" in migration
+    assert "job_authorizations_append_only" in migration
+    assert "fk_job_authorizations_idempotency_material" in migration

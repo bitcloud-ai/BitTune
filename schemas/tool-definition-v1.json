@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "ExperimentPhase": {
+      "enum": [
+        "requirements",
+        "environment",
+        "planning",
+        "approval",
+        "deployment",
+        "benchmark",
+        "optimization",
+        "verification",
+        "report",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ExperimentPhase",
+      "type": "string"
+    },
+    "RiskLevel": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "ToolExecutionMode": {
+      "enum": [
+        "read_only",
+        "async_job"
+      ],
+      "title": "ToolExecutionMode",
+      "type": "string"
+    },
+    "ToolName": {
+      "description": "Agent-visible tool name restricted to the public action vocabulary.",
+      "title": "ToolName",
+      "type": "string"
+    },
+    "UserRole": {
+      "enum": [
+        "viewer",
+        "operator",
+        "admin"
+      ],
+      "title": "UserRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allowed_phases": {
+      "items": {
+        "$ref": "#/$defs/ExperimentPhase"
+      },
+      "minItems": 1,
+      "title": "Allowed Phases",
+      "type": "array"
+    },
+    "allowed_roles": {
+      "items": {
+        "$ref": "#/$defs/UserRole"
+      },
+      "minItems": 1,
+      "title": "Allowed Roles",
+      "type": "array"
+    },
+    "execution_mode": {
+      "$ref": "#/$defs/ToolExecutionMode"
+    },
+    "input_schema_version": {
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]*/v[1-9][0-9]*$",
+      "title": "Input Schema Version",
+      "type": "string"
+    },
+    "name": {
+      "$ref": "#/$defs/ToolName"
+    },
+    "required_feature_flags": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Feature Flags",
+      "type": "array"
+    },
+    "required_hardware_capabilities": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Hardware Capabilities",
+      "type": "array"
+    },
+    "required_providers": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Providers",
+      "type": "array"
+    },
+    "requires_plan": {
+      "title": "Requires Plan",
+      "type": "boolean"
+    },
+    "risk_level": {
+      "$ref": "#/$defs/RiskLevel"
+    },
+    "schema_version": {
+      "const": "tool-definition/v1",
+      "default": "tool-definition/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "input_schema_version",
+    "risk_level",
+    "execution_mode",
+    "allowed_phases",
+    "allowed_roles",
+    "requires_plan"
+  ],
+  "title": "ToolDefinition",
+  "type": "object"
+}

@@ -80,9 +80,11 @@ MVP 完成必须同时满足：
 
 产物：
 
+- ADR-016 固定 opaque Bearer Token、SHA-256 Token Hash、Human/Service 主体隔离和审批职责分离；
 - 按 Phase、Role、Hardware、Provider、Feature Flag 和 Policy 求交集的动态 Tool 可见性；
 - Tool Gateway 强制链、OPA Client、默认拒绝 Rego 和 Policy Golden Test；
-- 不可变 Plan 审批、过期、Hash 匹配、预算和幂等。
+- Approval v2 的不可变 Plan 绑定、PostgreSQL 权威过期复验和 human admin 非自审批；
+- 追加式 Tool Set Snapshot、Job Authorization 和事务级幂等 Claim，供 Worker 执行前复核。
 
 验收：伪造 Tool、不可见 Tool、无审批 L2、Hash 错误、超预算和全部 L3 动作均被拒绝并记录。
 
@@ -180,5 +182,11 @@ uv run pytest tests/unit tests/contract
   Event/Audit、取消请求及 Artifact Store 已落地；Artifact 重启恢复测试已通过；
 - M3 的 6 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
   `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
-- M4～M9 未开始；
+- M4 已完成实现和非 PostgreSQL 验证：opaque Bearer Token 认证、动态 Tool 可见性、
+  Gateway 强制链、OPA fail-closed Client/Rego、Approval v2、Tool Set Snapshot、Job
+  Authorization 及资源预留前的事务级幂等 Claim 已落地；
+- M4 的真实 Rego Golden Test 需要本机 `opa` 可执行文件，当前环境缺失，因此 14 项跳过；
+- M3/M4 的 13 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
+  `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
+- M5～M9 未开始；
 - G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。

@@ -18,32 +18,46 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from autopilot.domain.artifacts import ArtifactProducer
-from autopilot.domain.enums import JobKind, JobStatus
+from autopilot.domain.enums import ExperimentPhase, JobKind, JobStatus, RiskLevel, UserRole
 from autopilot.domain.identifiers import (
     ArtifactId,
     AuditEventId,
     ExperimentId,
     JobId,
+    PlanHash,
     PlanId,
     Sha256Digest,
     ToolName,
+    UserId,
     WorkerId,
 )
+from autopilot.domain.identities import HumanSubject
 from autopilot.domain.jobs import JobRecord
 from autopilot.evidence.models import ArtifactMetadata, artifact_storage_path
+from autopilot.gateway.models import (
+    JobAuthorizationDraft,
+    ToolSetEntry,
+    VisibilityContext,
+    create_toolset_snapshot,
+)
 from autopilot.infrastructure.database.base import APP_SCHEMA, Base
 from autopilot.infrastructure.database.errors import (
     ArtifactBindingError,
     LeaseConflictError,
     PlanBindingError,
 )
+from autopilot.infrastructure.database.gateway_repositories import (
+    SqlAlchemyToolSetSnapshotRepository,
+)
 from autopilot.infrastructure.database.models import (
     AuditEventRow,
     EventRow,
     ExperimentRow,
     IdempotencyRow,
+    JobAuthorizationRow,
     JobRow,
     PlanRow,
+    ToolSetSnapshotRow,
 )
 from autopilot.infrastructure.database.repositories import (
     SqlAlchemyArtifactRepository,
@@ -167,11 +181,48 @@ def _enqueue(
     *,
     key: Sha256Digest | None = None,
 ):
+    idempotency_key = key or _digest(str(job.job_id))
+    request_hash = _digest(f"request:{job.plan_id}")
+    action = ToolName(root="start_benchmark")
+    subject = HumanSubject(user_id=UserId.new(), role=UserRole.OPERATOR)
+    context = VisibilityContext(
+        experiment_id=job.experiment_id,
+        subject=subject,
+        phase=ExperimentPhase.BENCHMARK,
+        enabled_providers=frozenset({"evalscope"}),
+    )
+    snapshot = create_toolset_snapshot(
+        context=context,
+        tools=(
+            ToolSetEntry(
+                name=action,
+                schema_version="plan-execution-request/v1",
+                risk_level=RiskLevel.L1,
+            ),
+        ),
+        policy_decision_ids=("integration-policy-allow",),
+        created_at=job.submitted_at,
+    )
+    SqlAlchemyToolSetSnapshotRepository(session).add(snapshot)
+    plan = session.get(PlanRow, str(job.plan_id))
+    assert plan is not None
     return SqlAlchemyJobRepository(session).enqueue(
         job,
-        idempotency_key=key or _digest(str(job.job_id)),
-        request_hash=_digest(f"request:{job.plan_id}"),
-        action=ToolName(root="start_benchmark"),
+        authorization=JobAuthorizationDraft(
+            experiment_id=job.experiment_id,
+            subject=subject,
+            action=action,
+            risk_level=RiskLevel.L1,
+            plan_id=job.plan_id,
+            plan_hash=PlanHash(root=plan.plan_hash),
+            tool_schema_version="plan-execution-request/v1",
+            tool_set_id=snapshot.tool_set_id,
+            tool_set_version=snapshot.tool_set_version,
+            policy_decision_id="integration-policy-allow",
+            request_hash=request_hash,
+            idempotency_key=idempotency_key,
+            authorized_at=job.submitted_at,
+        ),
     )
 
 
@@ -187,9 +238,12 @@ def test_alembic_upgrade_matches_sqlalchemy_metadata(postgres_engine: Engine) ->
         assert set(inspector.get_table_names(schema=APP_SCHEMA)) == {
             "experiments",
             "plans",
+            "approvals",
             "artifacts",
+            "toolset_snapshots",
             "jobs",
             "idempotency_records",
+            "job_authorizations",
             "events",
             "audit_events",
         }
@@ -219,6 +273,8 @@ def test_concurrent_idempotency_creates_one_job_and_event(
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(JobRow)) == 1
         assert session.scalar(select(func.count()).select_from(IdempotencyRow)) == 1
+        assert session.scalar(select(func.count()).select_from(JobAuthorizationRow)) == 1
+        assert session.scalar(select(func.count()).select_from(ToolSetSnapshotRow)) == 2
         assert (
             session.scalar(
                 select(func.count())
@@ -428,7 +484,7 @@ def test_repository_rejects_cross_experiment_plan_and_artifact(
         )
 
 
-def test_event_audit_idempotency_and_plan_material_are_immutable(
+def test_event_audit_authorization_and_plan_material_are_immutable(
     session_factory: sessionmaker[Session],
     postgres_engine: Engine,
 ) -> None:
@@ -457,6 +513,10 @@ def test_event_audit_idempotency_and_plan_material_are_immutable(
         "TRUNCATE app.events",
         "TRUNCATE app.audit_events",
         "TRUNCATE app.idempotency_records",
+        "UPDATE app.toolset_snapshots SET tools_json = '[]'::jsonb",
+        "DELETE FROM app.job_authorizations",
+        "TRUNCATE app.toolset_snapshots",
+        "TRUNCATE app.job_authorizations",
         "UPDATE app.plans SET body_json = '{\"changed\": true}'::jsonb",
     )
     for statement in statements:
@@ -470,3 +530,5 @@ def test_event_audit_idempotency_and_plan_material_are_immutable(
         assert session.scalar(select(func.count()).select_from(EventRow)) == 1
         assert session.scalar(select(func.count()).select_from(AuditEventRow)) == 1
         assert session.scalar(select(func.count()).select_from(IdempotencyRow)) == 1
+        assert session.scalar(select(func.count()).select_from(ToolSetSnapshotRow)) == 1
+        assert session.scalar(select(func.count()).select_from(JobAuthorizationRow)) == 1

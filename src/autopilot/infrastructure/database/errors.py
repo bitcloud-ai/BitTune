@@ -27,3 +27,23 @@ class ArtifactBindingError(PersistenceError):
 
 class JobStateConflictError(PersistenceError):
     """A requested persistence operation is incompatible with the current Job state."""
+
+
+class ApprovalNotFoundError(PersistenceError):
+    """The requested Approval does not exist."""
+
+
+class ApprovalBindingError(PersistenceError):
+    """An Approval does not match the immutable L2 Plan material."""
+
+
+class ApprovalStateConflictError(PersistenceError):
+    """An Approval or its Plan is not in the required lifecycle state."""
+
+
+class ApprovalActorConflictError(PersistenceError):
+    """An Approval decision violates human actor separation."""
+
+
+class AuthorizationBindingError(PersistenceError):
+    """Persisted Tool Set or Job authorization evidence has conflicting material."""

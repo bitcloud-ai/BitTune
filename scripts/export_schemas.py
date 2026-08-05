@@ -23,16 +23,24 @@ from autopilot.domain.candidates import DeploymentCandidate
 from autopilot.domain.constraints import SloSpec
 from autopilot.domain.errors import ErrorEnvelope
 from autopilot.domain.hardware import HardwarePassport
+from autopilot.domain.identities import BearerTokenBinding
 from autopilot.domain.jobs import JobRecord
 from autopilot.domain.models import ModelProfile
 from autopilot.domain.plans import PlanExecutionRequest
 from autopilot.domain.requirements import RequirementSpec
 from autopilot.domain.trials import ChampionSelection, TrialRecord, VerificationSummary
 from autopilot.domain.workloads import WorkloadSpec
+from autopilot.gateway.models import (
+    JobAuthorizationRecord,
+    ToolDefinition,
+    ToolSetSnapshot,
+)
+from autopilot.policy.models import PolicyDecision, PolicyInput
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
-    "approval-v1": ApprovalRecord,
+    "approval-v2": ApprovalRecord,
     "artifact-ref-v1": ArtifactRef,
+    "bearer-token-binding-v1": BearerTokenBinding,
     "benchmark-execution-specification-v1": BenchmarkExecutionSpecification,
     "benchmark-result-v1": BenchmarkResult,
     "champion-policy-v1": ChampionPolicy,
@@ -43,11 +51,16 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "execution-budget-v1": ExecutionBudget,
     "hardware-passport-v1": HardwarePassport,
     "job-v1": JobRecord,
+    "job-authorization-v1": JobAuthorizationRecord,
     "model-profile-v1": ModelProfile,
     "optimization-trial-v1": TrialRecord,
     "plan-execution-request-v1": PlanExecutionRequest,
+    "policy-decision-v1": PolicyDecision,
+    "policy-input-v1": PolicyInput,
     "requirements-v1": RequirementSpec,
     "slo-v1": SloSpec,
+    "tool-definition-v1": ToolDefinition,
+    "tool-set-snapshot-v1": ToolSetSnapshot,
     "verification-summary-v1": VerificationSummary,
     "vllm-search-space-v1": VllmSearchSpaceSpec,
     "workload-v1": WorkloadSpec,

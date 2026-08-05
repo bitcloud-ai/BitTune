@@ -1,0 +1,212 @@
+{
+  "$defs": {
+    "ApprovalId": {
+      "title": "ApprovalId",
+      "type": "string"
+    },
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "HumanSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human",
+          "default": "human",
+          "title": "Kind",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/UserRole"
+        },
+        "user_id": {
+          "$ref": "#/$defs/UserId"
+        }
+      },
+      "required": [
+        "user_id",
+        "role"
+      ],
+      "title": "HumanSubject",
+      "type": "object"
+    },
+    "JobId": {
+      "title": "JobId",
+      "type": "string"
+    },
+    "PlanHash": {
+      "description": "RFC 8785 canonical execution-specification digest.",
+      "title": "PlanHash",
+      "type": "string"
+    },
+    "PlanId": {
+      "title": "PlanId",
+      "type": "string"
+    },
+    "RiskLevel": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "ServiceSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "service",
+          "default": "service",
+          "title": "Kind",
+          "type": "string"
+        },
+        "service_name": {
+          "pattern": "^[a-z][a-z0-9-]{2,63}$",
+          "title": "Service Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_name"
+      ],
+      "title": "ServiceSubject",
+      "type": "object"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "Subject": {
+      "discriminator": {
+        "mapping": {
+          "human": "#/$defs/HumanSubject",
+          "service": "#/$defs/ServiceSubject"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HumanSubject"
+        },
+        {
+          "$ref": "#/$defs/ServiceSubject"
+        }
+      ]
+    },
+    "ToolName": {
+      "description": "Agent-visible tool name restricted to the public action vocabulary.",
+      "title": "ToolName",
+      "type": "string"
+    },
+    "ToolSetId": {
+      "title": "ToolSetId",
+      "type": "string"
+    },
+    "UserId": {
+      "title": "UserId",
+      "type": "string"
+    },
+    "UserRole": {
+      "enum": [
+        "viewer",
+        "operator",
+        "admin"
+      ],
+      "title": "UserRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable authorization evidence bound one-to-one to a persisted Job.",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/ToolName"
+    },
+    "approval_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ApprovalId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "authorized_at": {
+      "format": "date-time",
+      "title": "Authorized At",
+      "type": "string"
+    },
+    "experiment_id": {
+      "$ref": "#/$defs/ExperimentId"
+    },
+    "idempotency_key": {
+      "$ref": "#/$defs/Sha256Digest"
+    },
+    "job_id": {
+      "$ref": "#/$defs/JobId"
+    },
+    "plan_hash": {
+      "$ref": "#/$defs/PlanHash"
+    },
+    "plan_id": {
+      "$ref": "#/$defs/PlanId"
+    },
+    "policy_decision_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Policy Decision Id",
+      "type": "string"
+    },
+    "request_hash": {
+      "$ref": "#/$defs/Sha256Digest"
+    },
+    "risk_level": {
+      "$ref": "#/$defs/RiskLevel"
+    },
+    "schema_version": {
+      "const": "job-authorization/v1",
+      "default": "job-authorization/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject": {
+      "$ref": "#/$defs/Subject"
+    },
+    "tool_schema_version": {
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]*/v[1-9][0-9]*$",
+      "title": "Tool Schema Version",
+      "type": "string"
+    },
+    "tool_set_id": {
+      "$ref": "#/$defs/ToolSetId"
+    },
+    "tool_set_version": {
+      "$ref": "#/$defs/Sha256Digest"
+    }
+  },
+  "required": [
+    "experiment_id",
+    "subject",
+    "action",
+    "risk_level",
+    "plan_id",
+    "plan_hash",
+    "tool_schema_version",
+    "tool_set_id",
+    "tool_set_version",
+    "policy_decision_id",
+    "request_hash",
+    "idempotency_key",
+    "authorized_at",
+    "job_id"
+  ],
+  "title": "JobAuthorizationRecord",
+  "type": "object"
+}

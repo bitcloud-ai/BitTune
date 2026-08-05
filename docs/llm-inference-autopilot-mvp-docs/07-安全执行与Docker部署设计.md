@@ -66,24 +66,41 @@ MVP 永久不提供以下 Agent Tool：
 
 ---
 
-## 4. Tool Gateway 强制路径
+## 4. 认证与 Tool Gateway 强制路径
+
+### 4.1 认证主体
+
+- 外部请求唯一认证来源是至少 32 Byte CSPRNG 随机数据生成的 opaque Bearer Token；
+- 部署配置只保存 `sha256:<64 lowercase hex>` Token Hash 到稳定 HumanSubject 的映射；
+- 明文 Token 只经过 Secret/认证边界，不进入 Prompt、OPA、Graph、日志、Artifact 或数据库；
+- HumanSubject 固定为 `UserId + viewer/operator/admin`，ServiceSubject 使用独立 `service_name` 且没有用户角色；
+- 仅 human admin 可以决定 L2 Approval，Requester 与 Approver 必须是不同 UserId，Service 永远不能审批；
+- MVP 不建立 users 表，也不实现 JWT、OAuth/OIDC 或 Session。
+
+### 4.2 强制顺序
 
 任何执行：
 
 ```text
-Tool Call
+Bearer Authentication / Service Identity
+→ 持久化 Tool Set ID + Version 绑定
 → Tool 存在与可见性
 → Schema
-→ State
+→ 持久化 State
 → Budget
 → OPA
-→ Approval
-→ Idempotency
-→ Resource Lock
-→ Runner
+→ Approval 候选
+→ PostgreSQL 权威时间复验 Approval
+→ PostgreSQL 事务级 Idempotency Claim
+→ Resource Reservation
+→ Job + Idempotency + Job Authorization + Event 同事务入队
+→ Worker 执行前重新校验 Plan / Budget / OPA / Approval
+→ Capability Service / Adapter
+→ 需要高权限时调用 Host Runner
 ```
 
-不能让 Capability 绕过 Gateway 直接调用 Runner。
+相同 Idempotency Key 的并发请求先通过 `pg_advisory_xact_lock` 串行化；已存在 Job 时直接重放，不能再次预留资源。
+不能让 Capability 绕过 Gateway 直接调用 Runner，也不能创建缺少 `job_authorizations` 记录的 Job。
 
 ---
 
@@ -131,6 +148,9 @@ deny_reason := "arbitrary shell is forbidden" if {
 ---
 
 ## 6. 审批矩阵
+
+所有“是”的 L2 审批都使用 Approval v2，并同时绑定 Experiment、Plan ID、Plan Hash 和 Action；
+`plans.status = approved` 只表示 Plan 生命周期状态，不等于当前执行仍被授权。
 
 | 动作 | 风险 | 审批 |
 |---|---:|---|

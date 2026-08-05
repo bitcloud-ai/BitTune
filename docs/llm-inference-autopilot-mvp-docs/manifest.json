@@ -13,9 +13,9 @@
     },
     {
       "file": "02-Agent工作流与能力编排设计.md",
-      "bytes": 11299,
-      "lines": 539,
-      "sha256": "fae612515a87786dd88683d70421bf0aaa4be5a871dc319117c4ad66de03a703"
+      "bytes": 11679,
+      "lines": 551,
+      "sha256": "41e45201d32222364ffcb270c451c4d43d13808f6c633207c61ea400608ba4bf"
     },
     {
       "file": "03-能力包与Tool转换设计.md",
@@ -25,33 +25,33 @@
     },
     {
       "file": "04-七个环节能力与接口详细设计.md",
-      "bytes": 25278,
-      "lines": 1106,
-      "sha256": "3f804f7fc245973f1268988b7edb09189185980496b6301609f7a87b2e7eb25a"
+      "bytes": 26894,
+      "lines": 1149,
+      "sha256": "578586335b13b6bec2c91e2045c48ec9f3cc7e3ec7aed5339fb7678e75609bc3"
     },
     {
       "file": "05-系统技术架构与数据设计.md",
-      "bytes": 15528,
-      "lines": 618,
-      "sha256": "908a2d0ba1b99eed590b3b4c04fb40aaba005174f723f391f9ba925416491390"
+      "bytes": 17242,
+      "lines": 647,
+      "sha256": "2507c116041105d79d924714c6a0ae7aa4b6d9c9c92c7e90eb27d1b82d78c163"
     },
     {
       "file": "06-可扩展性与动态工具可见性设计.md",
-      "bytes": 7767,
-      "lines": 400,
-      "sha256": "9e0d416c1b947d3dc8620929e9199d67f1a86b3dd52b3cd976753a06b0426cc2"
+      "bytes": 8552,
+      "lines": 416,
+      "sha256": "230e8673bc65f787a414ba7e61783f2b28e38b8bade4aa34468da450eb59d38f"
     },
     {
       "file": "07-安全执行与Docker部署设计.md",
-      "bytes": 7714,
-      "lines": 382,
-      "sha256": "2d200e0e4629b3c1556bac46814aee7579fb82635e069d26512f8b5a6c29b564"
+      "bytes": 9187,
+      "lines": 402,
+      "sha256": "f73d988b320138c4d1636ccc27d454722e3183179fcd09b21fd170e68899111e"
     },
     {
       "file": "08-测试验收与实施路线.md",
-      "bytes": 8163,
-      "lines": 455,
-      "sha256": "60f3d8918096a9c47fe276b14df704524bfcb1fbe1e7f1c2111eb6ef4ad1b683"
+      "bytes": 8559,
+      "lines": 458,
+      "sha256": "4758b85432208128812b0ee5d43b0a1f49f229cfcc2339d7756e035dbc34d6f1"
     },
     {
       "file": "09-文档审查与准确性报告.md",

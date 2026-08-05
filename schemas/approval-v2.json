@@ -14,6 +14,33 @@
       "title": "ApprovalId",
       "type": "string"
     },
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "HumanSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human",
+          "default": "human",
+          "title": "Kind",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/UserRole"
+        },
+        "user_id": {
+          "$ref": "#/$defs/UserId"
+        }
+      },
+      "required": [
+        "user_id",
+        "role"
+      ],
+      "title": "HumanSubject",
+      "type": "object"
+    },
     "PlanHash": {
       "description": "RFC 8785 canonical execution-specification digest.",
       "title": "PlanHash",
@@ -30,6 +57,15 @@
     },
     "UserId": {
       "title": "UserId",
+      "type": "string"
+    },
+    "UserRole": {
+      "enum": [
+        "viewer",
+        "operator",
+        "admin"
+      ],
+      "title": "UserRole",
       "type": "string"
     }
   },
@@ -71,7 +107,7 @@
     "decided_by": {
       "anyOf": [
         {
-          "$ref": "#/$defs/UserId"
+          "$ref": "#/$defs/HumanSubject"
         },
         {
           "type": "null"
@@ -82,6 +118,9 @@
     "decision": {
       "$ref": "#/$defs/ApprovalDecision",
       "default": "pending"
+    },
+    "experiment_id": {
+      "$ref": "#/$defs/ExperimentId"
     },
     "expires_at": {
       "format": "date-time",
@@ -99,8 +138,8 @@
       "title": "Requested At",
       "type": "string"
     },
-    "requester_id": {
-      "$ref": "#/$defs/UserId"
+    "requester": {
+      "$ref": "#/$defs/HumanSubject"
     },
     "risk_level": {
       "const": "L2",
@@ -109,18 +148,19 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "approval/v1",
-      "default": "approval/v1",
+      "const": "approval/v2",
+      "default": "approval/v2",
       "title": "Schema Version",
       "type": "string"
     }
   },
   "required": [
     "approval_id",
+    "experiment_id",
     "plan_id",
     "plan_hash",
     "action",
-    "requester_id",
+    "requester",
     "requested_at",
     "expires_at"
   ],

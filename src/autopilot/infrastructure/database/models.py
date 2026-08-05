@@ -86,7 +86,146 @@ class PlanRow(Base):
             name="plan_status",
         ),
         UniqueConstraint("experiment_id", "id", name="uq_plans_experiment_id"),
+        UniqueConstraint(
+            "experiment_id",
+            "id",
+            "plan_hash",
+            name="uq_plans_experiment_id_plan_hash",
+        ),
         Index("ix_plans_experiment_created", "experiment_id", "created_at"),
+    )
+
+
+class ApprovalRow(Base):
+    __tablename__ = "approvals"
+
+    id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    experiment_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    plan_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(2), nullable=False)
+    requester_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    requester_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    requester_role: Mapped[str] = mapped_column(String(16), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_by_kind: Mapped[str | None] = mapped_column(String(16))
+    decided_by_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
+    decided_by_role: Mapped[str | None] = mapped_column(String(16))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comment: Mapped[str | None] = mapped_column(String(4096))
+
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version = 'approval/v2'",
+            name="approval_schema_version",
+        ),
+        CheckConstraint("risk_level = 'L2'", name="approval_l2_only"),
+        CheckConstraint(
+            "requester_kind = 'human' AND requester_role IN ('operator','admin')",
+            name="approval_human_requester",
+        ),
+        CheckConstraint(
+            "decision IN ('pending','approved','rejected','expired')",
+            name="approval_decision",
+        ),
+        CheckConstraint("requested_at < expires_at", name="approval_expiry"),
+        CheckConstraint(
+            "((decision IN ('pending','expired') AND decided_by_kind IS NULL "
+            "AND decided_by_id IS NULL AND decided_by_role IS NULL AND decided_at IS NULL) OR "
+            "(decision IN ('approved','rejected') AND decided_by_kind = 'human' "
+            "AND decided_by_id IS NOT NULL AND decided_by_role = 'admin' "
+            "AND decided_at IS NOT NULL AND requested_at <= decided_at "
+            "AND decided_at < expires_at))",
+            name="approval_decision_metadata",
+        ),
+        CheckConstraint(
+            "decided_by_id IS NULL OR requester_id <> decided_by_id",
+            name="approval_no_self_decision",
+        ),
+        CheckConstraint(
+            "comment IS NULL OR length(btrim(comment)) BETWEEN 1 AND 4096",
+            name="approval_comment",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id", "plan_id", "plan_hash"],
+            [
+                f"{APP_SCHEMA}.plans.experiment_id",
+                f"{APP_SCHEMA}.plans.id",
+                f"{APP_SCHEMA}.plans.plan_hash",
+            ],
+            name="fk_approvals_plan_material",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "plan_id",
+            "plan_hash",
+            "action",
+            name="uq_approvals_plan_hash_action",
+        ),
+        UniqueConstraint("experiment_id", "id", name="uq_approvals_experiment_id"),
+        Index("ix_approvals_plan_action", "experiment_id", "plan_id", "action"),
+    )
+
+
+class ToolSetSnapshotRow(Base):
+    __tablename__ = "toolset_snapshots"
+
+    id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_set_version: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    experiment_id: Mapped[str] = mapped_column(
+        ForeignKey(f"{APP_SCHEMA}.experiments.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    subject_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    subject_role: Mapped[str | None] = mapped_column(String(16))
+    phase: Mapped[str] = mapped_column(String(32), nullable=False)
+    hardware_capabilities_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    enabled_providers_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    enabled_feature_flags_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    tools_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    policy_decision_ids_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version = 'tool-set-snapshot/v1'",
+            name="toolset_snapshot_schema_version",
+        ),
+        CheckConstraint(
+            "((subject_kind = 'human' AND subject_role IN ('viewer','operator','admin')) OR "
+            "(subject_kind = 'service' AND subject_role IS NULL))",
+            name="toolset_snapshot_subject",
+        ),
+        CheckConstraint(
+            "phase IN ('requirements','environment','planning','approval','deployment',"
+            "'benchmark','optimization','verification','report','completed','failed','cancelled')",
+            name="toolset_snapshot_phase",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(hardware_capabilities_json) = 'array' "
+            "AND jsonb_typeof(enabled_providers_json) = 'array' "
+            "AND jsonb_typeof(enabled_feature_flags_json) = 'array' "
+            "AND jsonb_typeof(tools_json) = 'array' "
+            "AND jsonb_typeof(policy_decision_ids_json) = 'array'",
+            name="toolset_snapshot_json_arrays",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "id",
+            name="uq_toolset_snapshots_experiment_id",
+        ),
+        Index(
+            "ix_toolset_snapshots_experiment_created",
+            "experiment_id",
+            "created_at",
+        ),
     )
 
 
@@ -253,6 +392,114 @@ class IdempotencyRow(Base):
             ondelete="RESTRICT",
             deferrable=True,
             initially="DEFERRED",
+        ),
+        UniqueConstraint(
+            "idempotency_key",
+            "experiment_id",
+            "job_id",
+            "request_hash",
+            "action",
+            name="uq_idempotency_authorization_material",
+        ),
+    )
+
+
+class JobAuthorizationRow(Base):
+    __tablename__ = "job_authorizations"
+
+    job_id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    experiment_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    subject_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    subject_role: Mapped[str | None] = mapped_column(String(16))
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(2), nullable=False)
+    plan_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    approval_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
+    tool_schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_set_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    tool_set_version: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    policy_decision_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    authorized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version = 'job-authorization/v1'",
+            name="job_authorization_schema_version",
+        ),
+        CheckConstraint(
+            "risk_level IN ('L0','L1','L2')",
+            name="job_authorization_risk_level",
+        ),
+        CheckConstraint(
+            "((risk_level = 'L2' AND approval_id IS NOT NULL) OR "
+            "(risk_level IN ('L0','L1') AND approval_id IS NULL))",
+            name="job_authorization_approval",
+        ),
+        CheckConstraint(
+            "((subject_kind = 'human' AND subject_role IN ('viewer','operator','admin')) OR "
+            "(subject_kind = 'service' AND subject_role IS NULL))",
+            name="job_authorization_subject",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id", "job_id"],
+            [f"{APP_SCHEMA}.jobs.experiment_id", f"{APP_SCHEMA}.jobs.id"],
+            name="fk_job_authorizations_job",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id", "plan_id", "plan_hash"],
+            [
+                f"{APP_SCHEMA}.plans.experiment_id",
+                f"{APP_SCHEMA}.plans.id",
+                f"{APP_SCHEMA}.plans.plan_hash",
+            ],
+            name="fk_job_authorizations_plan_material",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id", "approval_id"],
+            [f"{APP_SCHEMA}.approvals.experiment_id", f"{APP_SCHEMA}.approvals.id"],
+            name="fk_job_authorizations_approval",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id", "tool_set_id"],
+            [
+                f"{APP_SCHEMA}.toolset_snapshots.experiment_id",
+                f"{APP_SCHEMA}.toolset_snapshots.id",
+            ],
+            name="fk_job_authorizations_toolset",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["idempotency_key", "experiment_id", "job_id", "request_hash", "action"],
+            [
+                f"{APP_SCHEMA}.idempotency_records.idempotency_key",
+                f"{APP_SCHEMA}.idempotency_records.experiment_id",
+                f"{APP_SCHEMA}.idempotency_records.job_id",
+                f"{APP_SCHEMA}.idempotency_records.request_hash",
+                f"{APP_SCHEMA}.idempotency_records.action",
+            ],
+            name="fk_job_authorizations_idempotency_material",
+            ondelete="RESTRICT",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "job_id",
+            name="uq_job_authorizations_experiment_id",
+        ),
+        Index(
+            "ix_job_authorizations_plan_action",
+            "experiment_id",
+            "plan_id",
+            "action",
         ),
     )
 

@@ -9,22 +9,48 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from autopilot.domain.approvals import (
+    ApprovalExecutionBinding,
+    ApprovalRecord,
+    validate_approval_for_execution,
+)
 from autopilot.domain.artifacts import ArtifactProducer, ArtifactRef
-from autopilot.domain.enums import JobStatus
+from autopilot.domain.enums import (
+    ApprovalDecision,
+    JobStatus,
+    PlanStatus,
+    RiskLevel,
+    UserRole,
+)
 from autopilot.domain.errors import ErrorEnvelope
 from autopilot.domain.identifiers import (
+    ApprovalId,
     ArtifactId,
     EventId,
     ExperimentId,
     JobId,
+    PlanHash,
+    PlanId,
     Sha256Digest,
     ToolName,
+    UserId,
     WorkerId,
 )
+from autopilot.domain.identities import HumanSubject, SubjectKind
 from autopilot.domain.jobs import TERMINAL_JOB_STATUSES, JobProgress, JobRecord
 from autopilot.evidence.models import ArtifactMetadata
 from autopilot.evidence.ports import ArtifactRepository
+from autopilot.gateway.approval_ports import (
+    ApprovalRepository,
+    CreateApprovalRequest,
+    DecideApprovalRequest,
+)
+from autopilot.gateway.models import JobAuthorizationDraft, bind_job_authorization
 from autopilot.infrastructure.database.errors import (
+    ApprovalActorConflictError,
+    ApprovalBindingError,
+    ApprovalNotFoundError,
+    ApprovalStateConflictError,
     ArtifactBindingError,
     IdempotencyConflictError,
     JobNotFoundError,
@@ -33,7 +59,12 @@ from autopilot.infrastructure.database.errors import (
     PersistenceError,
     PlanBindingError,
 )
+from autopilot.infrastructure.database.gateway_repositories import (
+    SqlAlchemyJobAuthorizationRepository,
+    replay_authorization_matches,
+)
 from autopilot.infrastructure.database.models import (
+    ApprovalRow,
     ArtifactRow,
     AuditEventRow,
     EventRow,
@@ -66,6 +97,18 @@ PLAN_BINDING_MISMATCH: Final = (
 ARTIFACT_BINDING_MISMATCH: Final = "Job result Artifact does not match persisted metadata"
 CANCELLATION_TERMINAL: Final = "terminal Jobs cannot accept a cancellation request"
 DATABASE_TIME_INVALID: Final = "PostgreSQL did not return an aware database timestamp"
+APPROVAL_NOT_FOUND: Final = "Approval does not exist"
+APPROVAL_PLAN_BINDING_MISMATCH: Final = (
+    "Approval must reference the current immutable L2 Plan material"
+)
+APPROVAL_REQUEST_CONFLICT: Final = "Approval request already exists for another requester"
+APPROVAL_NOT_PENDING: Final = "Approval has already reached a terminal decision"
+APPROVAL_PLAN_NOT_DRAFT: Final = "only a draft L2 Plan can be approved or rejected"
+APPROVAL_SELF_DECISION: Final = "requesters cannot decide their own Approval"
+APPROVAL_DECISION_INVALID: Final = "human Approval decisions must be approved or rejected"
+APPROVAL_EXPIRY_INVALID: Final = "Approval lifetime must be positive"
+APPROVAL_EXECUTION_STATE_INVALID: Final = "Approval is not active for execution"
+APPROVAL_ACTOR_INVALID: Final = "Approval requires an independent human admin decision"
 
 CLAIMABLE_STATUSES: Final = (
     JobStatus.QUEUED.value,
@@ -117,6 +160,76 @@ def _artifact_metadata(row: ArtifactRow) -> ArtifactMetadata:
 
 def _artifact_ref(row: ArtifactRow) -> ArtifactRef:
     return _artifact_metadata(row).to_ref()
+
+
+def _human_subject(*, kind: str, user_id: str, role: str) -> HumanSubject:
+    return HumanSubject(
+        kind=SubjectKind(kind),
+        user_id=UserId(root=user_id),
+        role=UserRole(role),
+    )
+
+
+def _approval_record(row: ApprovalRow) -> ApprovalRecord:
+    decided_by = None
+    if row.decided_by_id is not None:
+        if row.decided_by_kind is None or row.decided_by_role is None:
+            raise ApprovalActorConflictError(APPROVAL_ACTOR_INVALID)
+        decided_by = _human_subject(
+            kind=row.decided_by_kind,
+            user_id=row.decided_by_id,
+            role=row.decided_by_role,
+        )
+    return ApprovalRecord(
+        schema_version=row.schema_version,
+        approval_id=ApprovalId(root=row.id),
+        experiment_id=ExperimentId(root=row.experiment_id),
+        plan_id=PlanId(root=row.plan_id),
+        plan_hash=PlanHash(root=row.plan_hash),
+        action=ToolName(root=row.action),
+        risk_level=row.risk_level,
+        requester=_human_subject(
+            kind=row.requester_kind,
+            user_id=row.requester_id,
+            role=row.requester_role,
+        ),
+        requested_at=row.requested_at,
+        expires_at=row.expires_at,
+        decision=row.decision,
+        decided_by=decided_by,
+        decided_at=row.decided_at,
+        comment=row.comment,
+    )
+
+
+def _require_approval_plan(
+    row: PlanRow | None,
+    *,
+    experiment_id: ExperimentId,
+    plan_id: PlanId,
+    expected_plan_hash: PlanHash,
+) -> PlanRow:
+    if (
+        row is None
+        or row.experiment_id != str(experiment_id)
+        or row.id != str(plan_id)
+        or row.plan_hash != str(expected_plan_hash)
+        or row.risk_level != RiskLevel.L2.value
+    ):
+        raise ApprovalBindingError(APPROVAL_PLAN_BINDING_MISMATCH)
+    return row
+
+
+def _expire_approval(session: Session, row: ApprovalRow, *, now: datetime) -> ApprovalRecord:
+    if row.decision != ApprovalDecision.PENDING.value or now < row.expires_at:
+        return _approval_record(row)
+    row.decision = ApprovalDecision.EXPIRED.value
+    row.decided_by_kind = None
+    row.decided_by_id = None
+    row.decided_by_role = None
+    row.decided_at = None
+    session.flush()
+    return _approval_record(row)
 
 
 def _job_record(session: Session, row: JobRow) -> JobRecord:
@@ -202,17 +315,61 @@ def _locked_job_statement(job_id: JobId) -> Select[tuple[JobRow]]:
     return select(JobRow).where(JobRow.id == str(job_id)).with_for_update()
 
 
+def _locked_plan_statement(
+    *,
+    experiment_id: ExperimentId,
+    plan_id: PlanId,
+) -> Select[tuple[PlanRow]]:
+    return (
+        select(PlanRow)
+        .where(
+            PlanRow.experiment_id == str(experiment_id),
+            PlanRow.id == str(plan_id),
+        )
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+
+
+def _locked_approval_statement(approval_id: ApprovalId) -> Select[tuple[ApprovalRow]]:
+    return (
+        select(ApprovalRow)
+        .where(ApprovalRow.id == str(approval_id))
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+
+
+def _locked_plan_approval_statement(
+    *,
+    experiment_id: ExperimentId,
+    plan_id: PlanId,
+    expected_plan_hash: PlanHash,
+    action: ToolName,
+) -> Select[tuple[ApprovalRow]]:
+    return (
+        select(ApprovalRow)
+        .where(
+            ApprovalRow.experiment_id == str(experiment_id),
+            ApprovalRow.plan_id == str(plan_id),
+            ApprovalRow.plan_hash == str(expected_plan_hash),
+            ApprovalRow.action == str(action),
+        )
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+
+
 def _idempotent_replay(
     session: Session,
     existing: IdempotencyRow,
     *,
     job: JobRecord,
-    request_hash: Sha256Digest,
-    action: ToolName,
+    authorization: JobAuthorizationDraft,
 ) -> EnqueueJobResult:
     if (
-        existing.request_hash != str(request_hash)
-        or existing.action != str(action)
+        existing.request_hash != str(authorization.request_hash)
+        or existing.action != str(authorization.action)
         or existing.experiment_id != str(job.experiment_id)
     ):
         raise IdempotencyConflictError(IDEMPOTENCY_MISMATCH)
@@ -221,6 +378,12 @@ def _idempotent_replay(
         raise JobNotFoundError(JOB_NOT_FOUND)
     restored = _job_record(session, existing_job)
     if restored.plan_id != job.plan_id or restored.kind is not job.kind:
+        raise IdempotencyConflictError(IDEMPOTENCY_MISMATCH)
+    persisted_authorization = SqlAlchemyJobAuthorizationRepository(session).get(restored.job_id)
+    if persisted_authorization is None or not replay_authorization_matches(
+        persisted_authorization,
+        authorization,
+    ):
         raise IdempotencyConflictError(IDEMPOTENCY_MISMATCH)
     return EnqueueJobResult(job=restored, created=False)
 
@@ -308,6 +471,232 @@ class SqlAlchemyArtifactRepository(ArtifactRepository):
         return _artifact_metadata(row)
 
 
+class SqlAlchemyApprovalRepository(ApprovalRepository):
+    """Persist L2 approval decisions without owning transaction boundaries."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def create(self, request: CreateApprovalRequest) -> ApprovalRecord:
+        if request.expires_in <= timedelta(0):
+            raise ValueError(APPROVAL_EXPIRY_INVALID)
+        plan = _require_approval_plan(
+            self._session.scalar(
+                _locked_plan_statement(
+                    experiment_id=request.experiment_id,
+                    plan_id=request.plan_id,
+                )
+            ),
+            experiment_id=request.experiment_id,
+            plan_id=request.plan_id,
+            expected_plan_hash=request.expected_plan_hash,
+        )
+        binding_statement = _locked_plan_approval_statement(
+            experiment_id=request.experiment_id,
+            plan_id=request.plan_id,
+            expected_plan_hash=request.expected_plan_hash,
+            action=request.action,
+        )
+        existing = self._session.scalar(binding_statement)
+        now = _database_now(self._session)
+        if existing is not None:
+            if (
+                existing.requester_kind != request.requester.kind.value
+                or existing.requester_id != str(request.requester.user_id)
+                or existing.requester_role != request.requester.role.value
+            ):
+                raise ApprovalStateConflictError(APPROVAL_REQUEST_CONFLICT)
+            return _expire_approval(self._session, existing, now=now)
+        if plan.status != PlanStatus.DRAFT.value:
+            raise ApprovalStateConflictError(APPROVAL_PLAN_NOT_DRAFT)
+
+        record = ApprovalRecord(
+            approval_id=request.approval_id,
+            experiment_id=request.experiment_id,
+            plan_id=request.plan_id,
+            plan_hash=request.expected_plan_hash,
+            action=request.action,
+            requester=request.requester,
+            requested_at=now,
+            expires_at=now + request.expires_in,
+            comment=request.comment,
+        )
+        statement = (
+            insert(ApprovalRow)
+            .values(
+                id=str(record.approval_id),
+                schema_version=record.schema_version,
+                experiment_id=str(record.experiment_id),
+                plan_id=str(record.plan_id),
+                plan_hash=str(record.plan_hash),
+                action=str(record.action),
+                risk_level=record.risk_level.value,
+                requester_kind=record.requester.kind.value,
+                requester_id=str(record.requester.user_id),
+                requester_role=record.requester.role.value,
+                requested_at=record.requested_at,
+                expires_at=record.expires_at,
+                decision=record.decision.value,
+                decided_by_kind=None,
+                decided_by_id=None,
+                decided_by_role=None,
+                decided_at=None,
+                comment=record.comment,
+            )
+            .on_conflict_do_nothing()
+            .returning(ApprovalRow.id)
+        )
+        inserted_id = self._session.execute(statement).scalar_one_or_none()
+        if inserted_id is not None:
+            self._session.flush()
+            return record
+        existing = self._session.scalar(binding_statement)
+        if (
+            existing is None
+            or existing.requester_kind != request.requester.kind.value
+            or existing.requester_id != str(request.requester.user_id)
+            or existing.requester_role != request.requester.role.value
+        ):
+            raise ApprovalStateConflictError(APPROVAL_REQUEST_CONFLICT)
+        return _expire_approval(self._session, existing, now=now)
+
+    def get(self, approval_id: ApprovalId) -> ApprovalRecord | None:
+        row = self._session.scalar(_locked_approval_statement(approval_id))
+        if row is None:
+            return None
+        return _expire_approval(self._session, row, now=_database_now(self._session))
+
+    def get_for_plan(
+        self,
+        *,
+        experiment_id: ExperimentId,
+        plan_id: PlanId,
+        expected_plan_hash: PlanHash,
+        action: ToolName,
+    ) -> ApprovalRecord | None:
+        row = self._session.scalar(
+            _locked_plan_approval_statement(
+                experiment_id=experiment_id,
+                plan_id=plan_id,
+                expected_plan_hash=expected_plan_hash,
+                action=action,
+            )
+        )
+        if row is None:
+            return None
+        return _expire_approval(self._session, row, now=_database_now(self._session))
+
+    def require_valid_for_execution(
+        self,
+        *,
+        approval_id: ApprovalId,
+        experiment_id: ExperimentId,
+        plan_id: PlanId,
+        expected_plan_hash: PlanHash,
+        action: ToolName,
+    ) -> ApprovalRecord:
+        row = self._session.scalar(_locked_approval_statement(approval_id))
+        if row is None:
+            raise ApprovalNotFoundError(APPROVAL_NOT_FOUND)
+        if (
+            row.experiment_id != str(experiment_id)
+            or row.plan_id != str(plan_id)
+            or row.plan_hash != str(expected_plan_hash)
+            or row.action != str(action)
+        ):
+            raise ApprovalBindingError(APPROVAL_PLAN_BINDING_MISMATCH)
+        now = _database_now(self._session)
+        if row.decision != ApprovalDecision.APPROVED.value or now >= row.expires_at:
+            raise ApprovalStateConflictError(APPROVAL_EXECUTION_STATE_INVALID)
+        if (
+            row.requester_kind != SubjectKind.HUMAN.value
+            or row.requester_role not in {UserRole.OPERATOR.value, UserRole.ADMIN.value}
+            or row.decided_by_kind != SubjectKind.HUMAN.value
+            or row.decided_by_role != UserRole.ADMIN.value
+            or row.decided_by_id is None
+            or row.decided_by_id == row.requester_id
+        ):
+            raise ApprovalActorConflictError(APPROVAL_ACTOR_INVALID)
+        record = _approval_record(row)
+        try:
+            validate_approval_for_execution(
+                record,
+                ApprovalExecutionBinding(
+                    experiment_id=experiment_id,
+                    plan_id=plan_id,
+                    plan_hash=expected_plan_hash,
+                    action=action,
+                ),
+                now,
+            )
+        except ValueError as error:
+            raise ApprovalStateConflictError(APPROVAL_EXECUTION_STATE_INVALID) from error
+        return record
+
+    def decide(self, request: DecideApprovalRequest) -> ApprovalRecord:
+        if request.decision not in {ApprovalDecision.APPROVED, ApprovalDecision.REJECTED}:
+            raise ValueError(APPROVAL_DECISION_INVALID)
+
+        plan = _require_approval_plan(
+            self._session.scalar(
+                _locked_plan_statement(
+                    experiment_id=request.experiment_id,
+                    plan_id=request.expected_plan_id,
+                )
+            ),
+            experiment_id=request.experiment_id,
+            plan_id=request.expected_plan_id,
+            expected_plan_hash=request.expected_plan_hash,
+        )
+        row = self._session.scalar(_locked_approval_statement(request.approval_id))
+        if row is None:
+            raise ApprovalNotFoundError(APPROVAL_NOT_FOUND)
+        if (
+            row.experiment_id != str(request.experiment_id)
+            or row.plan_id != str(request.expected_plan_id)
+            or row.plan_hash != str(request.expected_plan_hash)
+            or row.action != str(request.expected_action)
+        ):
+            raise ApprovalBindingError(APPROVAL_PLAN_BINDING_MISMATCH)
+        if row.requester_id == str(request.actor.user_id):
+            raise ApprovalActorConflictError(APPROVAL_SELF_DECISION)
+
+        now = _database_now(self._session)
+        current = _expire_approval(self._session, row, now=now)
+        if current.decision is ApprovalDecision.EXPIRED:
+            return current
+        if current.decision is not ApprovalDecision.PENDING:
+            raise ApprovalStateConflictError(APPROVAL_NOT_PENDING)
+        if plan.status != PlanStatus.DRAFT.value:
+            raise ApprovalStateConflictError(APPROVAL_PLAN_NOT_DRAFT)
+
+        decided = current.model_copy(
+            update={
+                "decision": request.decision,
+                "decided_by": request.actor,
+                "decided_at": now,
+                "comment": request.comment,
+            }
+        )
+        decided = ApprovalRecord.model_validate(decided.model_dump())
+        row.decision = decided.decision.value
+        row.decided_by_kind = request.actor.kind.value
+        row.decided_by_id = str(request.actor.user_id)
+        row.decided_by_role = request.actor.role.value
+        row.decided_at = decided.decided_at
+        row.comment = decided.comment
+        plan.status = (
+            PlanStatus.APPROVED.value
+            if request.decision is ApprovalDecision.APPROVED
+            else PlanStatus.REJECTED.value
+        )
+        plan.approved_by = (
+            str(request.actor.user_id) if request.decision is ApprovalDecision.APPROVED else None
+        )
+        self._session.flush()
+        return decided
+
+
 class SqlAlchemyJobRepository:
     """Use one caller-owned Session so every operation composes into one transaction."""
 
@@ -318,20 +707,22 @@ class SqlAlchemyJobRepository:
         self,
         job: JobRecord,
         *,
-        idempotency_key: Sha256Digest,
-        request_hash: Sha256Digest,
-        action: ToolName,
+        authorization: JobAuthorizationDraft,
     ) -> EnqueueJobResult:
         if job.status is not JobStatus.QUEUED:
             raise ValueError(QUEUED_REQUIRED)
-        existing = self._session.get(IdempotencyRow, str(idempotency_key))
+        if authorization.experiment_id != job.experiment_id or authorization.plan_id != job.plan_id:
+            raise IdempotencyConflictError(IDEMPOTENCY_MISMATCH)
+        existing = self._session.get(
+            IdempotencyRow,
+            str(authorization.idempotency_key),
+        )
         if existing is not None:
             return _idempotent_replay(
                 self._session,
                 existing,
                 job=job,
-                request_hash=request_hash,
-                action=action,
+                authorization=authorization,
             )
 
         plan = self._session.get(PlanRow, str(job.plan_id))
@@ -340,15 +731,17 @@ class SqlAlchemyJobRepository:
             or plan.experiment_id != str(job.experiment_id)
             or plan.kind != job.kind.value
             or plan.status != "approved"
+            or plan.plan_hash != str(authorization.plan_hash)
+            or plan.risk_level != authorization.risk_level.value
         ):
             raise PlanBindingError(PLAN_BINDING_MISMATCH)
         statement = (
             insert(IdempotencyRow)
             .values(
-                idempotency_key=str(idempotency_key),
+                idempotency_key=str(authorization.idempotency_key),
                 schema_version="idempotency-record/v1",
-                request_hash=str(request_hash),
-                action=str(action),
+                request_hash=str(authorization.request_hash),
+                action=str(authorization.action),
                 experiment_id=str(job.experiment_id),
                 job_id=str(job.job_id),
                 created_at=job.submitted_at,
@@ -358,15 +751,17 @@ class SqlAlchemyJobRepository:
         )
         inserted_key = self._session.execute(statement).scalar_one_or_none()
         if inserted_key is None:
-            existing = self._session.get(IdempotencyRow, str(idempotency_key))
+            existing = self._session.get(
+                IdempotencyRow,
+                str(authorization.idempotency_key),
+            )
             if existing is None:
                 raise IdempotencyConflictError(IDEMPOTENCY_MISMATCH)
             return _idempotent_replay(
                 self._session,
                 existing,
                 job=job,
-                request_hash=request_hash,
-                action=action,
+                authorization=authorization,
             )
 
         row = JobRow(
@@ -389,6 +784,12 @@ class SqlAlchemyJobRepository:
         )
         self._session.add(row)
         self._session.flush()
+        SqlAlchemyJobAuthorizationRepository(self._session).add(
+            bind_job_authorization(
+                job_id=job.job_id,
+                draft=authorization,
+            )
+        )
         _append_event(
             self._session,
             row,
