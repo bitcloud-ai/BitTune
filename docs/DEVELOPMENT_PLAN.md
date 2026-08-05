@@ -172,6 +172,8 @@ uv run pytest tests/unit tests/contract
 - Git 和架构文档基线已建立；
 - M0 已完成；
 - M1 已完成；
-- M2 是下一个开发阶段；
-- M3～M9 未开始；
+- M2 已完成：vLLM/EvalScope Compiler、Benchmark Normalizer、封闭 Search Space、确定性
+  Champion/Fallback Policy、Golden Test、公共 Schema 和能力包 Manifest 已落地，标准检查已通过；
+- M3 是已确定的下一阶段，尚未开始；
+- M4～M9 未开始；
 - G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。

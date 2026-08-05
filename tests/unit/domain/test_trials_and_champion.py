@@ -95,6 +95,8 @@ def test_champion_and_fallback_must_be_distinct_verified_candidates(
                 verification(third, derived_provenance),
             ),
             max_coefficient_of_variation=0.05,
+            noise_multiplier=1,
+            minimum_relative_improvement=0.01,
             selection_artifact=artifact_ref,
         )
 
@@ -205,6 +207,41 @@ def test_verification_rejects_forged_statistics(
         )
 
 
+def test_verification_statistics_remain_typed_at_large_finite_values(
+    derived_provenance: DerivedProvenance,
+) -> None:
+    summary = VerificationSummary(
+        candidate_id=CandidateId.new(),
+        objective=ObjectiveSpec(),
+        repeat_values=(1e308, 1e308),
+        mean=1e308,
+        standard_deviation=0,
+        coefficient_of_variation=0,
+        worst_value=1e308,
+        constraints_satisfied=True,
+        provenance=derived_provenance,
+    )
+
+    assert summary.mean == 1e308
+
+
+def test_verification_rejects_large_relative_error_at_small_values(
+    derived_provenance: DerivedProvenance,
+) -> None:
+    with pytest.raises(ValidationError, match="statistics"):
+        VerificationSummary(
+            candidate_id=CandidateId.new(),
+            objective=ObjectiveSpec(),
+            repeat_values=(1e-12, 1e-12),
+            mean=5e-10,
+            standard_deviation=0,
+            coefficient_of_variation=0,
+            worst_value=5e-10,
+            constraints_satisfied=True,
+            provenance=derived_provenance,
+        )
+
+
 def test_champion_selection_enforces_ranking_and_stability(
     artifact_ref: ArtifactRef,
     derived_provenance: DerivedProvenance,
@@ -237,6 +274,8 @@ def test_champion_selection_enforces_ranking_and_stability(
         objective=ObjectiveSpec(),
         verified_candidates=summaries,
         max_coefficient_of_variation=0.05,
+        noise_multiplier=1,
+        minimum_relative_improvement=0.01,
         selection_artifact=artifact_ref,
     )
 
@@ -249,6 +288,8 @@ def test_champion_selection_enforces_ranking_and_stability(
             objective=ObjectiveSpec(),
             verified_candidates=summaries,
             max_coefficient_of_variation=0.05,
+            noise_multiplier=1,
+            minimum_relative_improvement=0.01,
             selection_artifact=artifact_ref,
         )
 
@@ -270,5 +311,45 @@ def test_champion_selection_enforces_ranking_and_stability(
             objective=ObjectiveSpec(),
             verified_candidates=(unstable, summaries[1], summaries[2]),
             max_coefficient_of_variation=0.05,
+            noise_multiplier=1,
+            minimum_relative_improvement=0.01,
+            selection_artifact=artifact_ref,
+        )
+
+
+def test_champion_rejects_improvement_below_noise_policy(
+    artifact_ref: ArtifactRef,
+    derived_provenance: DerivedProvenance,
+) -> None:
+    candidate_ids = (CandidateId.new(), CandidateId.new(), CandidateId.new())
+
+    def summary(candidate_id: CandidateId, value: float) -> VerificationSummary:
+        return VerificationSummary(
+            candidate_id=candidate_id,
+            objective=ObjectiveSpec(),
+            repeat_values=(value, value),
+            mean=value,
+            standard_deviation=0,
+            coefficient_of_variation=0,
+            worst_value=value,
+            constraints_satisfied=True,
+            provenance=derived_provenance,
+        )
+
+    summaries = (
+        summary(candidate_ids[0], 100.001),
+        summary(candidate_ids[1], 100.0),
+        summary(candidate_ids[2], 90.0),
+    )
+
+    with pytest.raises(ValidationError, match="noise policy"):
+        ChampionSelection(
+            champion_candidate_id=candidate_ids[0],
+            fallback_candidate_id=candidate_ids[1],
+            objective=ObjectiveSpec(),
+            verified_candidates=summaries,
+            max_coefficient_of_variation=0.05,
+            noise_multiplier=1,
+            minimum_relative_improvement=0.01,
             selection_artifact=artifact_ref,
         )

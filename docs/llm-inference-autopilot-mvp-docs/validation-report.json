@@ -13,8 +13,8 @@
     "README.md"
   ],
   "document_count": 10,
-  "total_lines": 4860,
-  "total_bytes": 107176,
+  "total_lines": 4988,
+  "total_bytes": 113579,
   "missing_readme_links": [],
   "unbalanced_code_fences": [],
   "checks": {
@@ -31,7 +31,8 @@
     "estimated_and_measured_distinguished": true,
     "dynamic_tool_visibility_designed": true,
     "long_job_protocol_present": true,
-    "seven_external_projects_documented": true
+    "seven_external_projects_documented": true,
+    "annotated_schema_examples_valid": true
   },
   "passed": true,
   "manual_review_document": "09-文档审查与准确性报告.md",
@@ -40,5 +41,7 @@
     "Pinned llm-d Planner commit and its behavior with custom 32GB GPU memory input",
     "Pinned EvalScope Python API, progress reporting and result field mapping",
     "Target model kernels and quantization compatibility on RTX 5090"
-  ]
+  ],
+  "annotated_schema_example_count": 5,
+  "invalid_schema_examples": []
 }

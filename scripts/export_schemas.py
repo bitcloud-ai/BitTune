@@ -9,6 +9,13 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from autopilot.capabilities.benchmark.domain.models import (
+    BenchmarkExecutionSpecification,
+    BenchmarkResult,
+)
+from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
+from autopilot.capabilities.evidence.domain.models import ChampionPolicy
+from autopilot.capabilities.optimization.domain.models import VllmSearchSpaceSpec
 from autopilot.domain.approvals import ApprovalRecord
 from autopilot.domain.artifacts import ArtifactRef
 from autopilot.domain.budgets import ExecutionBudget
@@ -26,8 +33,12 @@ from autopilot.domain.workloads import WorkloadSpec
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "approval-v1": ApprovalRecord,
     "artifact-ref-v1": ArtifactRef,
-    "champion-selection-v1": ChampionSelection,
+    "benchmark-execution-specification-v1": BenchmarkExecutionSpecification,
+    "benchmark-result-v1": BenchmarkResult,
+    "champion-policy-v1": ChampionPolicy,
+    "champion-selection-v2": ChampionSelection,
     "deployment-candidate-v1": DeploymentCandidate,
+    "deployment-execution-specification-v1": DeploymentExecutionSpecification,
     "error-envelope-v1": ErrorEnvelope,
     "execution-budget-v1": ExecutionBudget,
     "hardware-passport-v1": HardwarePassport,
@@ -38,6 +49,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "requirements-v1": RequirementSpec,
     "slo-v1": SloSpec,
     "verification-summary-v1": VerificationSummary,
+    "vllm-search-space-v1": VllmSearchSpaceSpec,
     "workload-v1": WorkloadSpec,
 }
 

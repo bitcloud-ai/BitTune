@@ -228,6 +228,18 @@
       "title": "Max Coefficient Of Variation",
       "type": "number"
     },
+    "minimum_relative_improvement": {
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "Minimum Relative Improvement",
+      "type": "number"
+    },
+    "noise_multiplier": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Noise Multiplier",
+      "type": "number"
+    },
     "objective": {
       "$ref": "#/$defs/ObjectiveSpec"
     },
@@ -238,8 +250,8 @@
       "type": "boolean"
     },
     "schema_version": {
-      "const": "champion-selection/v1",
-      "default": "champion-selection/v1",
+      "const": "champion-selection/v2",
+      "default": "champion-selection/v2",
       "title": "Schema Version",
       "type": "string"
     },
@@ -262,6 +274,8 @@
     "objective",
     "verified_candidates",
     "max_coefficient_of_variation",
+    "noise_multiplier",
+    "minimum_relative_improvement",
     "selection_artifact"
   ],
   "title": "ChampionSelection",

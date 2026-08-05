@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from scripts.validate_docs import broken_readme_links, document_facts, unbalanced_code_fences
+from scripts.validate_docs import (
+    broken_readme_links,
+    document_facts,
+    unbalanced_code_fences,
+    validate_schema_examples,
+)
 
 
 def test_document_facts_use_raw_utf8_bytes(tmp_path: Path) -> None:
@@ -29,3 +34,56 @@ def test_unbalanced_code_fences_reports_only_invalid_documents(tmp_path: Path) -
     unbalanced.write_text("```text\nvalue\n", encoding="utf-8", newline="\n")
 
     assert unbalanced_code_fences([balanced, unbalanced]) == ["unbalanced.md"]
+
+
+def test_annotated_json_example_is_validated_against_registered_schema(tmp_path: Path) -> None:
+    document = tmp_path / "example.md"
+    document.write_text(
+        "\n".join(
+            (
+                "<!-- schema-example: artifact-ref-v1 -->",
+                "```json",
+                '{"artifact_id":"artifact_11111111111111111111111111111111",'
+                '"sha256":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",'
+                '"content_type":"application/json","size_bytes":1,'
+                '"producer":{"component":"test","version":"1.0.0"}}',
+                "```",
+                "",
+            )
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = validate_schema_examples([document])
+
+    assert result.count == 1
+    assert result.errors == ()
+
+
+def test_annotated_json_example_reports_contract_drift(tmp_path: Path) -> None:
+    document = tmp_path / "example.md"
+    document.write_text(
+        "<!-- schema-example: workload-v1 -->\n```json\n{}\n```\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = validate_schema_examples([document])
+
+    assert result.count == 1
+    assert result.errors == ("example.md:1: example does not match generated schema 'workload-v1'",)
+
+
+def test_unannotated_provider_example_is_not_schema_validated(tmp_path: Path) -> None:
+    document = tmp_path / "provider.md"
+    document.write_text(
+        '```json\n{"provider_specific": true}\n```\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = validate_schema_examples([document])
+
+    assert result.count == 0
+    assert result.errors == ()

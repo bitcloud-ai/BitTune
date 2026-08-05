@@ -1,0 +1,1 @@
+"""Benchmark provider adapter namespace."""

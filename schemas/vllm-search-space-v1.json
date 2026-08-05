@@ -1,0 +1,259 @@
+{
+  "$defs": {
+    "BooleanConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "default": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "const": "oom",
+          "default": "oom",
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "const": "==",
+          "default": "==",
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "const": false,
+          "default": false,
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "title": "BooleanConstraint",
+      "type": "object"
+    },
+    "GpuMemoryUtilizationRange": {
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "maximum": 0.94,
+          "minimum": 0.8,
+          "title": "High",
+          "type": "number"
+        },
+        "low": {
+          "maximum": 0.94,
+          "minimum": 0.8,
+          "title": "Low",
+          "type": "number"
+        },
+        "step": {
+          "exclusiveMinimum": 0,
+          "maximum": 0.14,
+          "title": "Step",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low",
+        "high",
+        "step"
+      ],
+      "title": "GpuMemoryUtilizationRange",
+      "type": "object"
+    },
+    "NumericConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "numeric",
+          "default": "numeric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "$ref": "#/$defs/NumericMetric"
+        },
+        "operator": {
+          "$ref": "#/$defs/NumericOperator"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "operator",
+        "value"
+      ],
+      "title": "NumericConstraint",
+      "type": "object"
+    },
+    "NumericMetric": {
+      "enum": [
+        "e2e_p50_ms",
+        "e2e_p95_ms",
+        "e2e_p99_ms",
+        "ttft_p50_ms",
+        "ttft_p95_ms",
+        "ttft_p99_ms",
+        "tpot_p50_ms",
+        "tpot_p95_ms",
+        "tpot_p99_ms",
+        "itl_p50_ms",
+        "itl_p95_ms",
+        "itl_p99_ms",
+        "requests_per_second",
+        "successful_requests_per_minute",
+        "input_tokens_per_second",
+        "successful_output_tokens_per_second",
+        "total_tokens_per_minute",
+        "success_rate",
+        "window_completion_ratio"
+      ],
+      "title": "NumericMetric",
+      "type": "string"
+    },
+    "NumericOperator": {
+      "enum": [
+        "<=",
+        ">="
+      ],
+      "title": "NumericOperator",
+      "type": "string"
+    },
+    "ObjectiveSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "const": "maximize",
+          "default": "maximize",
+          "title": "Direction",
+          "type": "string"
+        },
+        "metric": {
+          "const": "successful_output_tokens_per_second",
+          "default": "successful_output_tokens_per_second",
+          "title": "Metric",
+          "type": "string"
+        }
+      },
+      "title": "ObjectiveSpec",
+      "type": "object"
+    },
+    "SloSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanConstraint",
+                "numeric": "#/$defs/NumericConstraint"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/NumericConstraint"
+              },
+              {
+                "$ref": "#/$defs/BooleanConstraint"
+              }
+            ]
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Constraints",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "slo/v1",
+          "default": "slo/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "constraints"
+      ],
+      "title": "SloSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "enable_chunked_prefill": {
+      "items": {
+        "type": "boolean"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "title": "Enable Chunked Prefill",
+      "type": "array"
+    },
+    "gpu_memory_utilization": {
+      "$ref": "#/$defs/GpuMemoryUtilizationRange"
+    },
+    "max_num_batched_tokens": {
+      "items": {
+        "enum": [
+          2048,
+          4096,
+          8192,
+          16384
+        ],
+        "type": "integer"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Max Num Batched Tokens",
+      "type": "array"
+    },
+    "max_num_seqs": {
+      "items": {
+        "enum": [
+          4,
+          8,
+          16,
+          32
+        ],
+        "type": "integer"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Max Num Seqs",
+      "type": "array"
+    },
+    "objective": {
+      "$ref": "#/$defs/ObjectiveSpec"
+    },
+    "profile_name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Profile Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "vllm-search-space/v1",
+      "default": "vllm-search-space/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "slo": {
+      "$ref": "#/$defs/SloSpec"
+    }
+  },
+  "required": [
+    "profile_name",
+    "objective",
+    "slo",
+    "gpu_memory_utilization",
+    "max_num_seqs",
+    "max_num_batched_tokens",
+    "enable_chunked_prefill"
+  ],
+  "title": "VllmSearchSpaceSpec",
+  "type": "object"
+}

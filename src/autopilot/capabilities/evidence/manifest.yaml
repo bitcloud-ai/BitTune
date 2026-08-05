@@ -1,0 +1,59 @@
+{
+  "api_version": "autopilot/v1",
+  "kind": "CapabilityPackage",
+  "metadata": {
+    "name": "evidence",
+    "package_version": "0.1.0"
+  },
+  "provider": {
+    "name": "mlflow",
+    "version_constraint": null,
+    "adapter_version": null,
+    "execution_entrypoint": null
+  },
+  "implementation": {
+    "deterministic_core": "implemented",
+    "agent_tools": "planned",
+    "provider_execution": "planned"
+  },
+  "requires": {
+    "phases": [
+      "optimization",
+      "verification",
+      "report"
+    ],
+    "resources": {
+      "cpu": true,
+      "network": true,
+      "gpu": false
+    },
+    "environment_capabilities": []
+  },
+  "tools": [
+    {
+      "name": "get_trial_comparison_result",
+      "visibility": "dynamic",
+      "risk_level": "L0"
+    },
+    {
+      "name": "create_champion_plan",
+      "visibility": "dynamic",
+      "risk_level": "L0"
+    },
+    {
+      "name": "get_evidence_result",
+      "visibility": "dynamic",
+      "risk_level": "L0"
+    }
+  ],
+  "schema_versions": [
+    "champion-policy/v1",
+    "verification-summary/v1",
+    "champion-selection/v2"
+  ],
+  "supports": {
+    "modes": [
+      "champion_selection"
+    ]
+  }
+}

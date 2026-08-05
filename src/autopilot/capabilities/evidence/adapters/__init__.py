@@ -1,0 +1,1 @@
+"""Evidence provider adapter namespace."""

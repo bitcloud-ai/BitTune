@@ -1,0 +1,9 @@
+"""Stable optimization validation codes."""
+
+from enum import StrEnum
+
+
+class OptimizationValidationCode(StrEnum):
+    OUTSIDE_SEARCH_SPACE = "OPTIMIZATION_OUTSIDE_SEARCH_SPACE"
+    STATIC_REJECTED = "OPTIMIZATION_STATIC_REJECTED"
+    INSUFFICIENT_FEASIBLE_TRIALS = "OPTIMIZATION_INSUFFICIENT_FEASIBLE_TRIALS"

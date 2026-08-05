@@ -1,0 +1,59 @@
+{
+  "adapter_version": "benchmark-adapter-test-v1",
+  "compiled_benchmark_hash": "sha256:c7f05760df7d12f80e79fe478811625f288065e301ba9adce608daee8ab156b6",
+  "deployment_id": "deployment_11111111111111111111111111111111",
+  "deployment_plan_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "latency": {
+    "e2e_ms": {"p50": 1000.0, "p95": 1500.0, "p99": 2000.0},
+    "itl_ms": {"p50": 10.0, "p95": 20.0, "p99": 40.0},
+    "tpot_ms": {"p50": 10.0, "p95": 20.0, "p99": 30.0},
+    "ttft_ms": {"p50": 100.0, "p95": 200.0, "p99": 300.0}
+  },
+  "lengths": {
+    "input_tokens": {"p50": 1900.0, "p95": 2000.0, "p99": 2100.0},
+    "output_tokens": {"p50": 450.0, "p95": 500.0, "p99": 500.0}
+  },
+  "measurement_duration_seconds": 130.0,
+  "oom": false,
+  "provenance": {
+    "adapter_version": "benchmark-adapter-test-v1",
+    "provider": "evalscope",
+    "provider_version": "1.10.0-test",
+    "raw_artifact": {
+      "artifact_id": "artifact_33333333333333333333333333333333",
+      "content_type": "application/json",
+      "producer": {
+        "component": "evalscope-adapter",
+        "version": "benchmark-adapter-test-v1"
+      },
+      "schema_version": "artifact-ref/v1",
+      "sha256": "sha256:a05fd54644eaa10134d779fb232fb7e8d7c030baab50882bce39c785f0f42270",
+      "size_bytes": 20
+    },
+    "source": "measured"
+  },
+  "provider": "evalscope",
+  "provider_profile_hash": "sha256:aaeced12fd7e57f4044f707c10973a0e3dccd1d741479f6eb771c89c19c40a0d",
+  "provider_profile_version": "evalscope-rtx5090-test-v1",
+  "provider_version": "1.10.0-test",
+  "raw_report_hash": "sha256:a05fd54644eaa10134d779fb232fb7e8d7c030baab50882bce39c785f0f42270",
+  "reliability": {
+    "completed": 8,
+    "completed_within_window": 7,
+    "failed": 1,
+    "submitted": 10,
+    "success_rate": 0.8,
+    "timed_out": 1,
+    "window_completion_ratio": 0.7
+  },
+  "scheduled_window_seconds": 120.0,
+  "schema_version": "benchmark-result/v1",
+  "throughput": {
+    "input_tokens_per_second": 123.07692307692308,
+    "requests_per_second": 0.06153846153846154,
+    "successful_output_tokens_per_second": 30.76923076923077,
+    "successful_requests_per_minute": 3.6923076923076925,
+    "total_tokens_per_minute": 9230.76923076923
+  },
+  "traffic_mode": "open_loop_sweep"
+}

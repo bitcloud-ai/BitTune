@@ -1,7 +1,6 @@
 """Typed optimization Trial, verification, and Champion evidence contracts."""
 
 import math
-import statistics
 from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
@@ -24,8 +23,25 @@ INVALID_CHAMPION = "Champion and fallback must be distinct feasible verified can
 INVALID_OBJECTIVE_METRIC = "Trial objective must use successful output tokens per second"
 INVALID_VERIFICATION_STATISTICS = "verification statistics do not match repeat values"
 UNSTABLE_CHAMPION = "verified candidate variation exceeds the Champion policy threshold"
+INSIGNIFICANT_CHAMPION = "Champion improvement does not exceed the configured noise policy"
 
 PositiveMetric = Annotated[float, Field(gt=0)]
+
+
+def calculate_verification_statistics(
+    repeat_values: tuple[float, ...],
+) -> tuple[float, float, float, float]:
+    """Calculate stable population statistics without overflowing on finite metrics."""
+    scale = max(repeat_values)
+    scaled_values = tuple(value / scale for value in repeat_values)
+    scaled_mean = math.fsum(scaled_values) / len(scaled_values)
+    mean = scaled_mean * scale
+    scaled_variance = math.fsum((value - scaled_mean) ** 2 for value in scaled_values) / len(
+        scaled_values
+    )
+    standard_deviation = math.sqrt(scaled_variance) * scale
+    coefficient_of_variation = standard_deviation / mean
+    return mean, standard_deviation, coefficient_of_variation, min(repeat_values)
 
 
 class NumericMetricValue(StrictModel):
@@ -142,24 +158,15 @@ class VerificationSummary(StrictModel):
 
     @model_validator(mode="after")
     def validate_statistics(self) -> Self:
-        expected_mean = statistics.fmean(self.repeat_values)
-        expected_standard_deviation = statistics.pstdev(self.repeat_values)
-        expected_coefficient_of_variation = expected_standard_deviation / expected_mean
-        expected_worst_value = min(self.repeat_values)
+        expected = calculate_verification_statistics(self.repeat_values)
         supplied = (
             self.mean,
             self.standard_deviation,
             self.coefficient_of_variation,
             self.worst_value,
         )
-        expected = (
-            expected_mean,
-            expected_standard_deviation,
-            expected_coefficient_of_variation,
-            expected_worst_value,
-        )
         if not all(
-            math.isclose(actual, calculated, rel_tol=1e-9, abs_tol=1e-9)
+            math.isclose(actual, calculated, rel_tol=1e-9, abs_tol=0)
             for actual, calculated in zip(supplied, expected, strict=True)
         ):
             raise ValueError(INVALID_VERIFICATION_STATISTICS)
@@ -167,12 +174,14 @@ class VerificationSummary(StrictModel):
 
 
 class ChampionSelection(StrictModel):
-    schema_version: Literal["champion-selection/v1"] = "champion-selection/v1"
+    schema_version: Literal["champion-selection/v2"] = "champion-selection/v2"
     champion_candidate_id: CandidateId
     fallback_candidate_id: CandidateId
     objective: ObjectiveSpec
     verified_candidates: tuple[VerificationSummary, ...] = Field(min_length=3, max_length=3)
     max_coefficient_of_variation: float = Field(gt=0, le=1)
+    noise_multiplier: float = Field(ge=1, le=5)
+    minimum_relative_improvement: float = Field(gt=0, le=1)
     selection_artifact: ArtifactRef
     requires_human_approval: Literal[True] = True
 
@@ -207,4 +216,14 @@ class ChampionSelection(StrictModel):
             or self.fallback_candidate_id != ranked[1].candidate_id
         ):
             raise ValueError(INVALID_CHAMPION)
+        objective_delta = ranked[0].mean - ranked[1].mean
+        combined_noise = self.noise_multiplier * (
+            ranked[0].standard_deviation + ranked[1].standard_deviation
+        )
+        relative_improvement = objective_delta / ranked[1].mean
+        if (
+            objective_delta <= combined_noise
+            or relative_improvement < self.minimum_relative_improvement
+        ):
+            raise ValueError(INSIGNIFICANT_CHAMPION)
         return self
