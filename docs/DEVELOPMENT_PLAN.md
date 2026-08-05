@@ -170,6 +170,7 @@ uv run pytest tests/unit tests/contract
 ## 5. 当前状态
 
 - Git 和架构文档基线已建立；
-- M0 正在执行；
-- M1～M9 未开始；
+- M0 已完成；
+- M1 是下一个开发阶段；
+- M2～M9 未开始；
 - G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。
