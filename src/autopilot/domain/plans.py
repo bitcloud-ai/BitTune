@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Self
+from typing import Literal, Self
 
-from pydantic import StringConstraints, model_validator
+from pydantic import model_validator
 
 from autopilot.domain.base import NonEmptyStr, SchemaVersion, StrictModel, UtcDatetime
 from autopilot.domain.budgets import ExecutionBudget
@@ -12,10 +12,6 @@ from autopilot.domain.enums import PlanKind, PlanStatus, RiskLevel
 from autopilot.domain.hashing import compute_plan_hash
 from autopilot.domain.identifiers import ExperimentId, PlanHash, PlanId
 
-IdempotencyKey = Annotated[
-    str,
-    StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"),
-]
 PLAN_HASH_MISMATCH = "plan hash does not match the immutable execution specification"
 
 
@@ -85,4 +81,3 @@ class PlanExecutionRequest(StrictModel):
     schema_version: Literal["plan-execution-request/v1"] = "plan-execution-request/v1"
     plan_id: PlanId
     expected_plan_hash: PlanHash
-    idempotency_key: IdempotencyKey

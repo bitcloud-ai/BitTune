@@ -90,9 +90,13 @@ class JobRecord(StrictModel):
         timeline_start = self.started_at or self.submitted_at
         if self.ended_at is not None and self.ended_at < timeline_start:
             raise ValueError(INVALID_JOB_TIMELINE)
-        if self.status is JobStatus.SUCCEEDED and self.result_artifact is None:
+        if self.status is JobStatus.SUCCEEDED:
+            if self.result_artifact is None or self.error is not None:
+                raise ValueError(INVALID_JOB_RESULT)
+        elif self.result_artifact is not None:
             raise ValueError(INVALID_JOB_RESULT)
-        if self.status is JobStatus.FAILED and self.error is None:
+        error_required = self.status in {JobStatus.FAILED, JobStatus.TIMED_OUT}
+        if error_required != (self.error is not None):
             raise ValueError(INVALID_JOB_RESULT)
         return self
 

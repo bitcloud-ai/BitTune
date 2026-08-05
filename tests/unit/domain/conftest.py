@@ -4,7 +4,8 @@ import pytest
 
 from autopilot.domain.artifacts import ArtifactProducer, ArtifactRef
 from autopilot.domain.budgets import ExecutionBudget
-from autopilot.domain.enums import Confidence
+from autopilot.domain.enums import Confidence, ErrorCategory
+from autopilot.domain.errors import DomainError, ErrorEnvelope
 from autopilot.domain.identifiers import ArtifactId, ModelRevision, Sha256Digest
 from autopilot.domain.models import HuggingFaceModelRef
 from autopilot.domain.provenance import (
@@ -95,4 +96,16 @@ def derived_provenance(artifact_ref: ArtifactRef) -> DerivedProvenance:
         adapter_version="1.0.0",
         calculation_artifact=artifact_ref,
         input_artifacts=(artifact_ref,),
+    )
+
+
+@pytest.fixture
+def error_envelope() -> ErrorEnvelope:
+    return ErrorEnvelope(
+        error=DomainError(
+            code="TEST_FAILURE",
+            category=ErrorCategory.INFRASTRUCTURE_ERROR,
+            message="deterministic test failure",
+            retryable=False,
+        )
     )

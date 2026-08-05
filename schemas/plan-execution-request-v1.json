@@ -15,11 +15,6 @@
     "expected_plan_hash": {
       "$ref": "#/$defs/PlanHash"
     },
-    "idempotency_key": {
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$",
-      "title": "Idempotency Key",
-      "type": "string"
-    },
     "plan_id": {
       "$ref": "#/$defs/PlanId"
     },
@@ -32,8 +27,7 @@
   },
   "required": [
     "plan_id",
-    "expected_plan_hash",
-    "idempotency_key"
+    "expected_plan_hash"
   ],
   "title": "PlanExecutionRequest",
   "type": "object"

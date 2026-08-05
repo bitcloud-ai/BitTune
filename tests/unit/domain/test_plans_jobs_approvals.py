@@ -70,8 +70,14 @@ def test_plan_execution_request_has_no_mutable_execution_fields() -> None:
         "schema_version",
         "plan_id",
         "expected_plan_hash",
-        "idempotency_key",
     }
+
+    with pytest.raises(ValidationError, match="idempotency_key"):
+        PlanExecutionRequest(
+            plan_id=PlanId.new(),
+            expected_plan_hash=PlanHash(root=f"sha256:{'0' * 64}"),
+            idempotency_key="caller-controlled-key",
+        )
 
 
 def test_plan_hash_covers_ids_kind_and_risk(execution_budget: ExecutionBudget) -> None:
@@ -145,6 +151,36 @@ def test_succeeded_job_requires_result_artifact() -> None:
         )
 
 
+def test_job_rejects_data_that_conflicts_with_status(
+    artifact_ref,
+    error_envelope,
+) -> None:
+    now = datetime.now(UTC)
+    common = {
+        "job_id": JobId.new(),
+        "experiment_id": ExperimentId.new(),
+        "plan_id": PlanId.new(),
+        "kind": JobKind.BENCHMARK,
+        "submitted_at": now,
+    }
+
+    with pytest.raises(ValidationError, match="terminal data"):
+        JobRecord(status=JobStatus.QUEUED, result_artifact=artifact_ref, **common)
+    with pytest.raises(ValidationError, match="terminal data"):
+        JobRecord(status=JobStatus.QUEUED, error=error_envelope, **common)
+    with pytest.raises(ValidationError, match="terminal data"):
+        JobRecord(
+            status=JobStatus.SUCCEEDED,
+            started_at=now,
+            ended_at=now,
+            result_artifact=artifact_ref,
+            error=error_envelope,
+            **common,
+        )
+    with pytest.raises(ValidationError, match="terminal data"):
+        JobRecord(status=JobStatus.TIMED_OUT, started_at=now, ended_at=now, **common)
+
+
 def test_running_job_rejects_started_time_before_submission() -> None:
     now = datetime.now(UTC)
 
@@ -179,22 +215,56 @@ def test_approval_validation_binds_hash_and_expiry(
         decided_at=now,
     )
 
-    validate_approval_for_execution(approval, plan_hash, now + timedelta(minutes=1))
+    validate_approval_for_execution(
+        approval,
+        approval.plan_id,
+        plan_hash,
+        approval.action,
+        now + timedelta(minutes=1),
+    )
 
     with pytest.raises(ValueError, match="expired"):
-        validate_approval_for_execution(approval, plan_hash, now + timedelta(minutes=11))
+        validate_approval_for_execution(
+            approval,
+            approval.plan_id,
+            plan_hash,
+            approval.action,
+            now + timedelta(minutes=11),
+        )
 
     with pytest.raises(ValueError, match="hash"):
         validate_approval_for_execution(
             approval,
+            approval.plan_id,
             PlanHash(root=f"sha256:{'f' * 64}"),
+            approval.action,
+            now + timedelta(minutes=1),
+        )
+
+    with pytest.raises(ValueError, match="plan ID"):
+        validate_approval_for_execution(
+            approval,
+            PlanId.new(),
+            plan_hash,
+            approval.action,
+            now + timedelta(minutes=1),
+        )
+
+    with pytest.raises(ValueError, match="action"):
+        validate_approval_for_execution(
+            approval,
+            approval.plan_id,
+            plan_hash,
+            ToolName(root="start_deployment"),
             now + timedelta(minutes=1),
         )
 
     with pytest.raises(ValueError, match="timezone-aware"):
         validate_approval_for_execution(
             approval,
+            approval.plan_id,
             plan_hash,
+            approval.action,
             datetime(2026, 8, 5, 12, 0),  # noqa: DTZ001
         )
 
