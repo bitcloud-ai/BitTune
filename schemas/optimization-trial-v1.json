@@ -1,0 +1,639 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BooleanConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "default": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "const": "oom",
+          "default": "oom",
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "const": "==",
+          "default": "==",
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "const": false,
+          "default": false,
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "title": "BooleanConstraint",
+      "type": "object"
+    },
+    "BooleanMetric": {
+      "enum": [
+        "oom"
+      ],
+      "title": "BooleanMetric",
+      "type": "string"
+    },
+    "BooleanMetricValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "default": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "$ref": "#/$defs/BooleanMetric"
+        },
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "BooleanMetricValue",
+      "type": "object"
+    },
+    "CandidateId": {
+      "title": "CandidateId",
+      "type": "string"
+    },
+    "ConstraintEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanConstraint",
+              "numeric": "#/$defs/NumericConstraint"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumericConstraint"
+            },
+            {
+              "$ref": "#/$defs/BooleanConstraint"
+            }
+          ],
+          "title": "Constraint"
+        },
+        "observed": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanMetricValue",
+              "numeric": "#/$defs/NumericMetricValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumericMetricValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanMetricValue"
+            }
+          ],
+          "title": "Observed"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "constraint",
+        "observed",
+        "passed"
+      ],
+      "title": "ConstraintEvaluation",
+      "type": "object"
+    },
+    "DomainError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/ErrorCategory"
+        },
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "field_errors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FieldError"
+          },
+          "maxItems": 64,
+          "title": "Field Errors",
+          "type": "array"
+        },
+        "message": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "provider_detail_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "suggested_actions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SuggestedAction"
+          },
+          "maxItems": 8,
+          "title": "Suggested Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable"
+      ],
+      "title": "DomainError",
+      "type": "object"
+    },
+    "ErrorCategory": {
+      "enum": [
+        "validation_error",
+        "policy_denied",
+        "resource_busy",
+        "deployment_error",
+        "model_incompatible",
+        "benchmark_error",
+        "oom",
+        "quality_gate_failed",
+        "infrastructure_error",
+        "unknown_error"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "ErrorEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/DomainError"
+        },
+        "schema_version": {
+          "const": "error-envelope/v1",
+          "default": "error-envelope/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "ErrorEnvelope",
+      "type": "object"
+    },
+    "FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "pattern": "^[a-zA-Z0-9_.\\[\\]-]{1,256}$",
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    },
+    "MeasuredProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "raw_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "source": {
+          "const": "measured",
+          "default": "measured",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "raw_artifact"
+      ],
+      "title": "MeasuredProvenance",
+      "type": "object"
+    },
+    "NumericConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "numeric",
+          "default": "numeric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "$ref": "#/$defs/NumericMetric"
+        },
+        "operator": {
+          "$ref": "#/$defs/NumericOperator"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "operator",
+        "value"
+      ],
+      "title": "NumericConstraint",
+      "type": "object"
+    },
+    "NumericMetric": {
+      "enum": [
+        "e2e_p50_ms",
+        "e2e_p95_ms",
+        "e2e_p99_ms",
+        "ttft_p50_ms",
+        "ttft_p95_ms",
+        "ttft_p99_ms",
+        "tpot_p50_ms",
+        "tpot_p95_ms",
+        "tpot_p99_ms",
+        "itl_p50_ms",
+        "itl_p95_ms",
+        "itl_p99_ms",
+        "requests_per_second",
+        "successful_requests_per_minute",
+        "input_tokens_per_second",
+        "successful_output_tokens_per_second",
+        "total_tokens_per_minute",
+        "success_rate",
+        "window_completion_ratio"
+      ],
+      "title": "NumericMetric",
+      "type": "string"
+    },
+    "NumericMetricValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "numeric",
+          "default": "numeric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "$ref": "#/$defs/NumericMetric"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "NumericMetricValue",
+      "type": "object"
+    },
+    "NumericOperator": {
+      "enum": [
+        "<=",
+        ">="
+      ],
+      "title": "NumericOperator",
+      "type": "string"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "StudyId": {
+      "title": "StudyId",
+      "type": "string"
+    },
+    "SuggestedAction": {
+      "enum": [
+        "revise_plan",
+        "check_environment",
+        "wait_for_resource",
+        "request_approval",
+        "contact_operator"
+      ],
+      "title": "SuggestedAction",
+      "type": "string"
+    },
+    "TrialId": {
+      "title": "TrialId",
+      "type": "string"
+    },
+    "TrialStatus": {
+      "enum": [
+        "suggested",
+        "rejected_static",
+        "deployment_failed",
+        "benchmark_failed",
+        "oom",
+        "constraint_failed",
+        "completed",
+        "cancelled"
+      ],
+      "title": "TrialStatus",
+      "type": "string"
+    },
+    "VllmTuningSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enable_chunked_prefill": {
+          "title": "Enable Chunked Prefill",
+          "type": "boolean"
+        },
+        "gpu_memory_utilization": {
+          "maximum": 0.94,
+          "minimum": 0.8,
+          "title": "Gpu Memory Utilization",
+          "type": "number"
+        },
+        "max_model_len": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Model Len",
+          "type": "integer"
+        },
+        "max_num_batched_tokens": {
+          "enum": [
+            2048,
+            4096,
+            8192,
+            16384
+          ],
+          "title": "Max Num Batched Tokens",
+          "type": "integer"
+        },
+        "max_num_seqs": {
+          "enum": [
+            4,
+            8,
+            16,
+            32
+          ],
+          "title": "Max Num Seqs",
+          "type": "integer"
+        },
+        "tensor_parallel_size": {
+          "const": 1,
+          "default": 1,
+          "title": "Tensor Parallel Size",
+          "type": "integer"
+        },
+        "trust_remote_code": {
+          "const": false,
+          "default": false,
+          "title": "Trust Remote Code",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "max_model_len",
+        "gpu_memory_utilization",
+        "max_num_seqs",
+        "max_num_batched_tokens",
+        "enable_chunked_prefill"
+      ],
+      "title": "VllmTuningSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_id": {
+      "$ref": "#/$defs/CandidateId"
+    },
+    "constraints": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ConstraintEvaluation"
+      },
+      "maxItems": 16,
+      "title": "Constraints",
+      "type": "array"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorEnvelope"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "maxItems": 64,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "objective": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NumericMetricValue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parameters": {
+      "$ref": "#/$defs/VllmTuningSpec"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MeasuredProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "optimization-trial/v1",
+      "default": "optimization-trial/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/TrialStatus"
+    },
+    "study_id": {
+      "$ref": "#/$defs/StudyId"
+    },
+    "trial_id": {
+      "$ref": "#/$defs/TrialId"
+    },
+    "trial_number": {
+      "maximum": 1000000,
+      "minimum": 0,
+      "title": "Trial Number",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "trial_id",
+    "study_id",
+    "trial_number",
+    "candidate_id",
+    "parameters",
+    "status"
+  ],
+  "title": "TrialRecord",
+  "type": "object"
+}

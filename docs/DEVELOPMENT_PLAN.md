@@ -165,12 +165,13 @@ uv run mypy src/autopilot runner
 uv run pytest tests/unit tests/contract
 ```
 
-涉及 API、数据库、Gateway、Runner 或 Adapter 边界时增加对应 `tests/integration` 测试。`tests/gpu` 只能在 M10 前置条件满足后执行。
+涉及 API、数据库、Gateway、Runner 或 Adapter 边界时增加对应 `tests/integration` 测试。`tests/gpu` 只能在 G0 前置条件满足后执行。
 
 ## 5. 当前状态
 
 - Git 和架构文档基线已建立；
 - M0 已完成；
-- M1 是下一个开发阶段；
-- M2～M9 未开始；
+- M1 已完成；
+- M2 是下一个开发阶段；
+- M3～M9 未开始；
 - G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。

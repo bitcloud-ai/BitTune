@@ -1,0 +1,217 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "DomainError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/ErrorCategory"
+        },
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "field_errors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FieldError"
+          },
+          "maxItems": 64,
+          "title": "Field Errors",
+          "type": "array"
+        },
+        "message": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "provider_detail_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "suggested_actions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SuggestedAction"
+          },
+          "maxItems": 8,
+          "title": "Suggested Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable"
+      ],
+      "title": "DomainError",
+      "type": "object"
+    },
+    "ErrorCategory": {
+      "enum": [
+        "validation_error",
+        "policy_denied",
+        "resource_busy",
+        "deployment_error",
+        "model_incompatible",
+        "benchmark_error",
+        "oom",
+        "quality_gate_failed",
+        "infrastructure_error",
+        "unknown_error"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "pattern": "^[a-zA-Z0-9_.\\[\\]-]{1,256}$",
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "SuggestedAction": {
+      "enum": [
+        "revise_plan",
+        "check_environment",
+        "wait_for_resource",
+        "request_approval",
+        "contact_operator"
+      ],
+      "title": "SuggestedAction",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "$ref": "#/$defs/DomainError"
+    },
+    "schema_version": {
+      "const": "error-envelope/v1",
+      "default": "error-envelope/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "error"
+  ],
+  "title": "ErrorEnvelope",
+  "type": "object"
+}

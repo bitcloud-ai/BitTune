@@ -1,0 +1,40 @@
+{
+  "$defs": {
+    "PlanHash": {
+      "description": "RFC 8785 canonical execution-specification digest.",
+      "title": "PlanHash",
+      "type": "string"
+    },
+    "PlanId": {
+      "title": "PlanId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "expected_plan_hash": {
+      "$ref": "#/$defs/PlanHash"
+    },
+    "idempotency_key": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "plan_id": {
+      "$ref": "#/$defs/PlanId"
+    },
+    "schema_version": {
+      "const": "plan-execution-request/v1",
+      "default": "plan-execution-request/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "expected_plan_hash",
+    "idempotency_key"
+  ],
+  "title": "PlanExecutionRequest",
+  "type": "object"
+}

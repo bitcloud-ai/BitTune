@@ -1,0 +1,75 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {
+      "$ref": "#/$defs/ArtifactId"
+    },
+    "content_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Content Type",
+      "type": "string"
+    },
+    "producer": {
+      "$ref": "#/$defs/ArtifactProducer"
+    },
+    "schema_version": {
+      "const": "artifact-ref/v1",
+      "default": "artifact-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sha256": {
+      "$ref": "#/$defs/Sha256Digest"
+    },
+    "size_bytes": {
+      "maximum": 100000000000,
+      "minimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "artifact_id",
+    "sha256",
+    "content_type",
+    "size_bytes",
+    "producer"
+  ],
+  "title": "ArtifactRef",
+  "type": "object"
+}

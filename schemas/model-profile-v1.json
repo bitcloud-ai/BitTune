@@ -1,0 +1,426 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "artifact",
+          "default": "artifact",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "revision"
+      ],
+      "title": "ArtifactModelRef",
+      "type": "object"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "DerivedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "calculation_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "input_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Input Artifacts",
+          "type": "array"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "source": {
+          "const": "derived",
+          "default": "derived",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "calculation_artifact",
+        "input_artifacts"
+      ],
+      "title": "DerivedProvenance",
+      "type": "object"
+    },
+    "EstimatedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "calculation_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "source": {
+          "const": "estimated",
+          "default": "estimated",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "confidence",
+        "calculation_artifact"
+      ],
+      "title": "EstimatedProvenance",
+      "type": "object"
+    },
+    "HuggingFaceModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "huggingface",
+          "default": "huggingface",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_id",
+        "revision"
+      ],
+      "title": "HuggingFaceModelRef",
+      "type": "object"
+    },
+    "MeasuredProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "raw_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "source": {
+          "const": "measured",
+          "default": "measured",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "raw_artifact"
+      ],
+      "title": "MeasuredProvenance",
+      "type": "object"
+    },
+    "ModelProfileId": {
+      "title": "ModelProfileId",
+      "type": "string"
+    },
+    "ModelRevision": {
+      "description": "Immutable model repository commit revision.",
+      "title": "ModelRevision",
+      "type": "string"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "architectures": {
+      "items": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{1,127}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Architectures",
+      "type": "array"
+    },
+    "attention_heads": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Attention Heads",
+      "type": "integer"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "title": "Captured At",
+      "type": "string"
+    },
+    "config_artifact": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "hidden_size": {
+      "maximum": 10000000,
+      "minimum": 1,
+      "title": "Hidden Size",
+      "type": "integer"
+    },
+    "kv_heads": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Kv Heads",
+      "type": "integer"
+    },
+    "layer_count": {
+      "maximum": 10000,
+      "minimum": 1,
+      "title": "Layer Count",
+      "type": "integer"
+    },
+    "license_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "License Id"
+    },
+    "max_context_tokens": {
+      "maximum": 50000000,
+      "minimum": 1,
+      "title": "Max Context Tokens",
+      "type": "integer"
+    },
+    "model_profile_id": {
+      "$ref": "#/$defs/ModelProfileId"
+    },
+    "model_ref": {
+      "discriminator": {
+        "mapping": {
+          "artifact": "#/$defs/ArtifactModelRef",
+          "huggingface": "#/$defs/HuggingFaceModelRef"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HuggingFaceModelRef"
+        },
+        {
+          "$ref": "#/$defs/ArtifactModelRef"
+        }
+      ],
+      "title": "Model Ref"
+    },
+    "parameter_count": {
+      "maximum": 10000000000000,
+      "minimum": 1,
+      "title": "Parameter Count",
+      "type": "integer"
+    },
+    "provenance": {
+      "discriminator": {
+        "mapping": {
+          "derived": "#/$defs/DerivedProvenance",
+          "estimated": "#/$defs/EstimatedProvenance",
+          "measured": "#/$defs/MeasuredProvenance"
+        },
+        "propertyName": "source"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EstimatedProvenance"
+        },
+        {
+          "$ref": "#/$defs/MeasuredProvenance"
+        },
+        {
+          "$ref": "#/$defs/DerivedProvenance"
+        }
+      ],
+      "title": "Provenance"
+    },
+    "quantization": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Quantization"
+    },
+    "schema_version": {
+      "const": "model-profile/v1",
+      "default": "model-profile/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model_profile_id",
+    "model_ref",
+    "architectures",
+    "parameter_count",
+    "layer_count",
+    "hidden_size",
+    "attention_heads",
+    "kv_heads",
+    "max_context_tokens",
+    "quantization",
+    "license_id",
+    "config_artifact",
+    "provenance",
+    "captured_at"
+  ],
+  "title": "ModelProfile",
+  "type": "object"
+}

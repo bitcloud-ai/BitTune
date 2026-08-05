@@ -26,6 +26,8 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/autopilot runner
 uv run pytest tests/unit tests/contract
+uv run python scripts/validate_docs.py
+uv run python scripts/export_schemas.py
 ```
 
 GPU 测试不在默认检查中。只能在获得明确批准、GPU 0 空闲且预算已配置后执行 `tests/gpu`。

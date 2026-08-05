@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-settings==2.14.2",
     "psycopg[binary]==3.3.4",
     "psycopg-pool==3.3.1",
+    "rfc8785==0.1.4",
     "sqlalchemy==2.0.51",
     "uvicorn==0.52.1",
 ]

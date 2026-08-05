@@ -1,0 +1,1 @@
+"""Domain contract unit tests."""

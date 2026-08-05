@@ -1,0 +1,356 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "artifact",
+          "default": "artifact",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "revision"
+      ],
+      "title": "ArtifactModelRef",
+      "type": "object"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CandidateId": {
+      "title": "CandidateId",
+      "type": "string"
+    },
+    "Confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "EstimatedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "calculation_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "source": {
+          "const": "estimated",
+          "default": "estimated",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "confidence",
+        "calculation_artifact"
+      ],
+      "title": "EstimatedProvenance",
+      "type": "object"
+    },
+    "HardwarePassportId": {
+      "title": "HardwarePassportId",
+      "type": "string"
+    },
+    "HuggingFaceModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "huggingface",
+          "default": "huggingface",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_id",
+        "revision"
+      ],
+      "title": "HuggingFaceModelRef",
+      "type": "object"
+    },
+    "ImageDigest": {
+      "description": "Immutable OCI image reference containing a SHA-256 digest.",
+      "title": "ImageDigest",
+      "type": "string"
+    },
+    "ModelProfileId": {
+      "title": "ModelProfileId",
+      "type": "string"
+    },
+    "ModelRevision": {
+      "description": "Immutable model repository commit revision.",
+      "title": "ModelRevision",
+      "type": "string"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "VllmTuningSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enable_chunked_prefill": {
+          "title": "Enable Chunked Prefill",
+          "type": "boolean"
+        },
+        "gpu_memory_utilization": {
+          "maximum": 0.94,
+          "minimum": 0.8,
+          "title": "Gpu Memory Utilization",
+          "type": "number"
+        },
+        "max_model_len": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Model Len",
+          "type": "integer"
+        },
+        "max_num_batched_tokens": {
+          "enum": [
+            2048,
+            4096,
+            8192,
+            16384
+          ],
+          "title": "Max Num Batched Tokens",
+          "type": "integer"
+        },
+        "max_num_seqs": {
+          "enum": [
+            4,
+            8,
+            16,
+            32
+          ],
+          "title": "Max Num Seqs",
+          "type": "integer"
+        },
+        "tensor_parallel_size": {
+          "const": 1,
+          "default": 1,
+          "title": "Tensor Parallel Size",
+          "type": "integer"
+        },
+        "trust_remote_code": {
+          "const": false,
+          "default": false,
+          "title": "Trust Remote Code",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "max_model_len",
+        "gpu_memory_utilization",
+        "max_num_seqs",
+        "max_num_batched_tokens",
+        "enable_chunked_prefill"
+      ],
+      "title": "VllmTuningSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "adapter_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Adapter Version",
+      "type": "string"
+    },
+    "candidate_id": {
+      "$ref": "#/$defs/CandidateId"
+    },
+    "engine": {
+      "const": "vllm",
+      "default": "vllm",
+      "title": "Engine",
+      "type": "string"
+    },
+    "engine_image": {
+      "$ref": "#/$defs/ImageDigest"
+    },
+    "engine_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "estimation": {
+      "$ref": "#/$defs/EstimatedProvenance"
+    },
+    "hardware_passport_hash": {
+      "$ref": "#/$defs/Sha256Digest"
+    },
+    "hardware_passport_id": {
+      "$ref": "#/$defs/HardwarePassportId"
+    },
+    "model_profile_id": {
+      "$ref": "#/$defs/ModelProfileId"
+    },
+    "model_ref": {
+      "discriminator": {
+        "mapping": {
+          "artifact": "#/$defs/ArtifactModelRef",
+          "huggingface": "#/$defs/HuggingFaceModelRef"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HuggingFaceModelRef"
+        },
+        {
+          "$ref": "#/$defs/ArtifactModelRef"
+        }
+      ],
+      "title": "Model Ref"
+    },
+    "parameters": {
+      "$ref": "#/$defs/VllmTuningSpec"
+    },
+    "profile": {
+      "enum": [
+        "conservative",
+        "balanced",
+        "throughput"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "deployment-candidate/v1",
+      "default": "deployment-candidate/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "workload_hash": {
+      "$ref": "#/$defs/Sha256Digest"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "profile",
+    "hardware_passport_id",
+    "hardware_passport_hash",
+    "model_profile_id",
+    "model_ref",
+    "engine_image",
+    "engine_version",
+    "adapter_version",
+    "workload_hash",
+    "parameters",
+    "estimation"
+  ],
+  "title": "DeploymentCandidate",
+  "type": "object"
+}

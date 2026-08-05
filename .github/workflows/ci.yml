@@ -44,3 +44,6 @@ jobs:
 
       - name: Validate architecture documents
         run: uv run python scripts/validate_docs.py
+
+      - name: Validate generated JSON Schema
+        run: uv run python scripts/export_schemas.py
