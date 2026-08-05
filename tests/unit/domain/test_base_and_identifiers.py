@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from autopilot.domain.base import StrictModel, UtcDatetime
+from autopilot.domain.budgets import ExecutionBudget
+from autopilot.domain.candidates import VllmTuningSpec
 from autopilot.domain.identifiers import (
     ExperimentId,
     ImageDigest,
@@ -15,6 +17,29 @@ from autopilot.domain.identifiers import (
 
 class TimestampedValue(StrictModel):
     captured_at: UtcDatetime
+
+
+def test_strict_models_reject_type_coercion() -> None:
+    budget = {
+        "max_duration_seconds": 60,
+        "max_requests": 5,
+        "max_input_tokens": 100,
+        "max_output_tokens": 100,
+        "max_disk_growth_bytes": 1_000,
+    }
+
+    with pytest.raises(ValidationError, match="max_requests"):
+        ExecutionBudget(**{**budget, "max_requests": "5"})
+    with pytest.raises(ValidationError, match="max_duration_seconds"):
+        ExecutionBudget(**{**budget, "max_duration_seconds": True})
+    with pytest.raises(ValidationError, match="enable_chunked_prefill"):
+        VllmTuningSpec(
+            max_model_len=8_192,
+            gpu_memory_utilization=0.9,
+            max_num_seqs=8,
+            max_num_batched_tokens=4_096,
+            enable_chunked_prefill="false",
+        )
 
 
 def test_strict_model_rejects_extra_fields_and_is_frozen() -> None:

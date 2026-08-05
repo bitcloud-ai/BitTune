@@ -13,7 +13,6 @@ from autopilot.domain.enums import (
     PlanKind,
     RiskLevel,
 )
-from autopilot.domain.hashing import compute_plan_hash
 from autopilot.domain.identifiers import (
     ApprovalId,
     ExperimentId,
@@ -201,10 +200,17 @@ def test_approval_validation_binds_hash_and_expiry(
 ) -> None:
     now = datetime.now(UTC)
     specification = make_specification(execution_budget)
-    plan_hash = compute_plan_hash(specification)
+    plan_id = PlanId.new()
+    plan_hash = compute_plan_envelope_hash(
+        plan_id=plan_id,
+        experiment_id=ExperimentId.new(),
+        kind=PlanKind.BENCHMARK,
+        risk_level=RiskLevel.L2,
+        execution_specification=specification,
+    )
     approval = ApprovalRecord(
         approval_id=ApprovalId.new(),
-        plan_id=PlanId.new(),
+        plan_id=plan_id,
         plan_hash=plan_hash,
         action=ToolName(root="start_benchmark"),
         requester_id=UserId.new(),

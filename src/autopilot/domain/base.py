@@ -27,6 +27,7 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
+        strict=True,
         populate_by_name=True,
         str_strip_whitespace=True,
         validate_default=True,
