@@ -6,6 +6,9 @@ from pydantic import ValidationError
 from autopilot.domain.base import StrictModel, UtcDatetime
 from autopilot.domain.budgets import ExecutionBudget
 from autopilot.domain.candidates import VllmTuningSpec
+from autopilot.domain.constraints import ObjectiveSpec
+from autopilot.domain.enums import NumericMetric, ObjectiveDirection
+from autopilot.domain.hardware import NvidiaAccelerator
 from autopilot.domain.identifiers import (
     ExperimentId,
     ImageDigest,
@@ -40,6 +43,25 @@ def test_strict_models_reject_type_coercion() -> None:
             max_num_batched_tokens=4_096,
             enable_chunked_prefill="false",
         )
+    with pytest.raises(ValidationError, match="power_watts"):
+        NvidiaAccelerator(
+            name="NVIDIA GeForce RTX 5090",
+            uuid="GPU-1234567890abcdef",
+            memory_total_bytes=32_000_000_000,
+            memory_free_bytes=31_000_000_000,
+            temperature_celsius=30,
+            utilization_percent=0,
+            power_watts="123.4",
+        )
+
+
+def test_literal_enum_accepts_explicit_enum_instance() -> None:
+    objective = ObjectiveSpec(
+        metric=NumericMetric.SUCCESSFUL_OUTPUT_TOKENS_PER_SECOND,
+        direction=ObjectiveDirection.MAXIMIZE,
+    )
+
+    assert objective.direction is ObjectiveDirection.MAXIMIZE
 
 
 def test_strict_model_rejects_extra_fields_and_is_frozen() -> None:

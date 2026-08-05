@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import Enum
-from types import UnionType
+from types import NoneType, UnionType
 from typing import Annotated, Literal, Union, get_args, get_origin
 
 from pydantic import (
@@ -33,6 +33,8 @@ MAPPING_TYPE_ARGUMENT_COUNT = 2
 
 
 def _literal_matches(value: object, expected: object) -> bool:
+    if type(value) is type(expected) and value == expected:
+        return True
     if isinstance(expected, Enum):
         expected = expected.value
     return type(value) is type(expected) and value == expected
@@ -72,15 +74,20 @@ def _mapping_coercion_error(arguments: tuple[object, ...], value: object, path: 
 
 
 def _primitive_coercion_error(annotation: object, value: object, path: str) -> str | None:
-    if annotation is bool and type(value) is not bool:
-        return f"{path} must be a boolean without coercion"
-    if annotation is int and type(value) is not int:
-        return f"{path} must be an integer without coercion"
-    if annotation is float and type(value) not in {int, float}:
-        return f"{path} must be a number without coercion"
-    if annotation is str and type(value) is not str:
-        return f"{path} must be a string without coercion"
-    return None
+    error = None
+    if annotation is NoneType:
+        error = None if value is None else f"{path} must be null"
+    elif annotation is bool and type(value) is not bool:
+        error = f"{path} must be a boolean without coercion"
+    elif annotation is int and type(value) is not int:
+        error = f"{path} must be an integer without coercion"
+    elif annotation is float and type(value) not in {int, float}:
+        error = f"{path} must be a number without coercion"
+    elif annotation is str and type(value) is not str:
+        error = f"{path} must be a string without coercion"
+    elif annotation is AwareDatetime and not isinstance(value, (datetime, str)):
+        error = f"{path} must be an aware datetime or RFC3339 string"
+    return error
 
 
 def _scalar_coercion_error(annotation: object, value: object, path: str) -> str | None:

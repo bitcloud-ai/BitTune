@@ -150,6 +150,22 @@ def test_succeeded_job_requires_result_artifact() -> None:
         )
 
 
+def test_succeeded_job_requires_started_timestamp(artifact_ref) -> None:
+    now = datetime.now(UTC)
+
+    with pytest.raises(ValidationError, match="timestamps"):
+        JobRecord(
+            job_id=JobId.new(),
+            experiment_id=ExperimentId.new(),
+            plan_id=PlanId.new(),
+            kind=JobKind.BENCHMARK,
+            status=JobStatus.SUCCEEDED,
+            submitted_at=now,
+            ended_at=now,
+            result_artifact=artifact_ref,
+        )
+
+
 def test_job_rejects_data_that_conflicts_with_status(
     artifact_ref,
     error_envelope,

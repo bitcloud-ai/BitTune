@@ -69,7 +69,7 @@ class JobRecord(StrictModel):
 
     @model_validator(mode="after")
     def validate_state_data(self) -> Self:
-        if self.status is JobStatus.RUNNING and self.started_at is None:
+        if self.status in {JobStatus.RUNNING, JobStatus.SUCCEEDED} and self.started_at is None:
             raise ValueError(INVALID_JOB_TIMESTAMPS)
         if self.status in TERMINAL_JOB_STATUSES and self.ended_at is None:
             raise ValueError(INVALID_JOB_TIMESTAMPS)
