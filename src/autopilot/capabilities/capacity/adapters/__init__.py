@@ -1,0 +1,1 @@
+"""Capacity provider adapters."""

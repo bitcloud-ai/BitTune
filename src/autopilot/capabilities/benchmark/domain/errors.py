@@ -10,3 +10,18 @@ class BenchmarkValidationError(ValueError):
         self.code = code
         self.field = field
         super().__init__(message)
+
+
+class BenchmarkProviderError(RuntimeError):
+    """A classified EvalScope/Runner boundary failure."""
+
+    def __init__(
+        self,
+        code: BenchmarkValidationCode,
+        message: str,
+        *,
+        retryable: bool,
+    ) -> None:
+        self.code = code
+        self.retryable = retryable
+        super().__init__(message)

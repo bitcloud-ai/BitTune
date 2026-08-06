@@ -1,0 +1,1 @@
+"""Capacity application services."""

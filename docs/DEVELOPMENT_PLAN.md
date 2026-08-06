@@ -193,5 +193,6 @@ uv run pytest tests/unit tests/contract
   磁盘预算、清理和权威快照约束的 Reconciliation 已落地；真实 Linux UDS、Docker、systemd
   和 GPU 验收仍待目标主机；
 - G0 等待 Linux RTX 5090 主机、固定 Provider 版本矩阵和明确 GPU 测试批准；
-- M6 的非 GPU Fake/Contract 路径正在开发，真实 llm-d Planner、vLLM 和 EvalScope Provider
-  入口在 G0 完成前保持 fail-closed；M7～M9 未开始。
+- M6 已落地环境、容量、部署和 Benchmark 的版本化 Port、Fake 生命周期及 Runner Adapter
+  边界测试；真实 llm-d Planner、vLLM 和 EvalScope Provider 版本尚未通过 G0，因此入口继续
+  fail-closed；固定 Trial 闭环及 M7～M9 尚未开始。
