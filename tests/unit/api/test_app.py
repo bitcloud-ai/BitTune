@@ -6,21 +6,91 @@ from pydantic import SecretStr
 
 from autopilot.api.app import ApiDependencies, create_app
 from autopilot.api.repositories import InMemoryExperimentStore
-from autopilot.domain.enums import UserRole
-from autopilot.domain.identifiers import UserId
+from autopilot.domain.approvals import ApprovalRecord
+from autopilot.domain.base import utc_now
+from autopilot.domain.enums import ApprovalDecision, UserRole
+from autopilot.domain.identifiers import ApprovalId, PlanHash, PlanId, ToolName, UserId
 from autopilot.domain.identities import BearerTokenBinding, HumanSubject
+from autopilot.gateway.approval_ports import CreateApprovalRequest, DecideApprovalRequest
 from autopilot.gateway.authentication import (
     BearerTokenAuthenticator,
     hash_bearer_token,
 )
 from autopilot.gateway.models import GatewayEnvironment
-from autopilot.graph.agent import AgentMessageView, AgentRunResult
+from autopilot.graph.agent import AgentMessageView, AgentRunResult, AgentStreamEvent
 from autopilot.graph.reconciliation import NoopReconciler
 from autopilot.graph.workflow import GraphDependencies, build_runtime
 from tests.unit.graph.fakes import FakeGraphOperations, FakeModelProvider
 
 TOKEN = "A" * 43
 ADMIN_TOKEN = "B" * 43
+PLAN_ID = PlanId(root="plan_" + "1" * 32)
+PLAN_HASH = PlanHash(root="sha256:" + "2" * 64)
+PLAN_ACTION = ToolName(root="start_deployment")
+APPROVAL_NOT_FOUND = "approval does not exist"
+APPROVAL_SELF_DECISION = "requester cannot decide approval"
+APPROVAL_BINDING_MISMATCH = "approval binding mismatch"
+
+
+class InMemoryApprovalStore:
+    def __init__(self) -> None:
+        self.records: dict[ApprovalId, ApprovalRecord] = {}
+
+    def create(self, request: CreateApprovalRequest) -> ApprovalRecord:
+        for record in self.records.values():
+            if (
+                record.experiment_id == request.experiment_id
+                and record.plan_id == request.plan_id
+                and record.plan_hash == request.expected_plan_hash
+                and record.action == request.action
+            ):
+                return record
+        now = utc_now()
+        record = ApprovalRecord(
+            approval_id=request.approval_id,
+            experiment_id=request.experiment_id,
+            plan_id=request.plan_id,
+            plan_hash=request.expected_plan_hash,
+            action=request.action,
+            requester=request.requester,
+            requested_at=now,
+            expires_at=now + request.expires_in,
+            comment=request.comment,
+        )
+        self.records[record.approval_id] = record
+        return record
+
+    def get(self, approval_id: str) -> ApprovalRecord | None:
+        try:
+            return self.records.get(ApprovalId(root=approval_id))
+        except ValueError:
+            return None
+
+    def decide(self, request: DecideApprovalRequest) -> ApprovalRecord:
+        record = self.records.get(request.approval_id)
+        if record is None:
+            raise ValueError(APPROVAL_NOT_FOUND)
+        if record.requester.user_id == request.actor.user_id:
+            raise ValueError(APPROVAL_SELF_DECISION)
+        if (
+            record.experiment_id != request.experiment_id
+            or record.plan_id != request.expected_plan_id
+            or record.plan_hash != request.expected_plan_hash
+            or record.action != request.expected_action
+        ):
+            raise ValueError(APPROVAL_BINDING_MISMATCH)
+        if record.decision is not ApprovalDecision.PENDING:
+            return record
+        updated = record.model_copy(
+            update={
+                "decision": request.decision,
+                "decided_by": request.actor,
+                "decided_at": utc_now(),
+                "comment": request.comment,
+            }
+        )
+        self.records[record.approval_id] = updated
+        return updated
 
 
 class FakeAgent:
@@ -53,7 +123,19 @@ class FakeAgent:
             tool_calls=(),
             interrupted=interrupted,
             interrupt_payload=(
-                {"action_requests": [{"name": "start_deployment"}]} if interrupted else None
+                {
+                    "action_requests": [
+                        {
+                            "name": str(PLAN_ACTION),
+                            "args": {
+                                "plan_id": str(PLAN_ID),
+                                "expected_plan_hash": str(PLAN_HASH),
+                            },
+                        }
+                    ]
+                }
+                if interrupted
+                else None
             ),
             tool_set_id=None,
             tool_set_version=None,
@@ -88,6 +170,35 @@ class FakeAgent:
 
     def state(self, *, experiment_id) -> tuple[AgentMessageView, ...]:
         return self.messages.get(str(experiment_id), ())
+
+    def stream_resume(
+        self,
+        *,
+        experiment_id,
+        approved: bool,
+        environment: GatewayEnvironment,
+        message: str | None = None,
+    ):
+        result = self.resume(
+            experiment_id=experiment_id,
+            approved=approved,
+            environment=environment,
+            message=message,
+        )
+        yield AgentStreamEvent(
+            event_type="run.completed",
+            payload={"interrupted": False},
+            result=result,
+        )
+
+
+class FailingStreamAgent(FakeAgent):
+    def stream_resume(self, **kwargs):
+        del kwargs
+        yield AgentStreamEvent(
+            event_type="run.error",
+            payload={"code": "MODEL_PROVIDER_UNAVAILABLE"},
+        )
 
 
 def _client() -> TestClient:
@@ -133,6 +244,7 @@ def _dependencies(saver: InMemorySaver, experiments: InMemoryExperimentStore) ->
     return ApiDependencies(
         authenticator=authenticator,
         experiments=experiments,
+        approvals=InMemoryApprovalStore(),
         graph=build_runtime(
             GraphDependencies(FakeModelProvider(), FakeGraphOperations(), NoopReconciler()),
             checkpointer=saver,
@@ -258,3 +370,67 @@ def test_agent_session_api_is_continuous_and_resumable() -> None:
     )
     assert continued.status_code == 200
     assert len(continued.json()["messages"]) == 5
+
+
+def test_agent_stream_resume_persists_independent_approval() -> None:
+    saver = InMemorySaver()
+    experiments = InMemoryExperimentStore()
+    approvals = InMemoryApprovalStore()
+    agent = FakeAgent()
+    dependencies = replace(
+        _dependencies(saver, experiments),
+        agent=agent,
+        approvals=approvals,
+    )
+    client = TestClient(create_app(dependencies))
+    created = client.post(
+        "/api/v1/sessions",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={"schema_version": "create-session-request/v1", "message": "deploy now"},
+    )
+    assert created.status_code == 201
+    experiment_id = created.json()["experiment_id"]
+    assert len(approvals.records) == 1
+
+    resumed = client.post(
+        f"/api/v1/sessions/{experiment_id}/resume/stream",
+        headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        json={"schema_version": "session-resume-request/v1", "decision": "approve"},
+    )
+
+    assert resumed.status_code == 200
+    assert "event: run.completed" in resumed.text
+    approval = next(iter(approvals.records.values()))
+    assert approval.decision is ApprovalDecision.APPROVED
+
+
+def test_agent_stream_resume_failure_restores_pending_session_projection() -> None:
+    saver = InMemorySaver()
+    experiments = InMemoryExperimentStore()
+    approvals = InMemoryApprovalStore()
+    dependencies = replace(
+        _dependencies(saver, experiments),
+        agent=FailingStreamAgent(),
+        approvals=approvals,
+    )
+    client = TestClient(create_app(dependencies))
+    created = client.post(
+        "/api/v1/sessions",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={"schema_version": "create-session-request/v1", "message": "deploy now"},
+    )
+    experiment_id = created.json()["experiment_id"]
+
+    resumed = client.post(
+        f"/api/v1/sessions/{experiment_id}/resume/stream",
+        headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        json={"schema_version": "session-resume-request/v1", "decision": "approve"},
+    )
+    session = client.get(
+        f"/api/v1/sessions/{experiment_id}",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+
+    assert "event: run.error" in resumed.text
+    assert session.json()["status"] == "waiting_approval"
+    assert session.json()["phase"] == "approval"

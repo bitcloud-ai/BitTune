@@ -4,6 +4,7 @@ import json
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Annotated, Literal, Self, cast
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -36,7 +37,7 @@ from autopilot.domain.identifiers import (
 )
 from autopilot.domain.identities import HumanSubject
 from autopilot.domain.jobs import JobRecord
-from autopilot.gateway.approval_ports import DecideApprovalRequest
+from autopilot.gateway.approval_ports import CreateApprovalRequest, DecideApprovalRequest
 from autopilot.gateway.authentication import AuthenticationError, BearerTokenAuthenticator
 from autopilot.gateway.models import GatewayEnvironment
 from autopilot.graph.agent import (
@@ -50,6 +51,8 @@ from autopilot.graph.agent import (
 from autopilot.graph.state import GraphStateSnapshot, new_state
 from autopilot.graph.workflow import GraphRunResult, GraphRuntime
 from autopilot.jobs.ports import JobRepository
+
+AGENT_APPROVAL_TTL = timedelta(minutes=15)
 
 
 class CreateExperimentRequest(StrictModel):
@@ -236,6 +239,7 @@ def _agent_view(
     deps: ApiDependencies,
     experiment_id: ExperimentId,
     result: AgentRunResult,
+    subject: HumanSubject,
 ) -> AgentSessionView:
     record = deps.experiments.get(experiment_id)
     if record is None:
@@ -246,12 +250,19 @@ def _agent_view(
         if result.interrupted
         else ExperimentStatus.ACTIVE.value
     )
+    interrupt_payload = result.interrupt_payload
     if result.interrupt_payload is not None:
+        interrupt_payload = _create_agent_approval(
+            deps,
+            experiment_id,
+            subject,
+            result.interrupt_payload,
+        )
         current_phase = projection.get("phase", record.phase.value)
         if current_phase != ExperimentPhase.APPROVAL.value:
             projection["approval_resume_phase"] = current_phase
         projection["phase"] = ExperimentPhase.APPROVAL.value
-        projection["approval_request"] = result.interrupt_payload
+        projection["approval_request"] = interrupt_payload
     else:
         projection.pop("approval_request", None)
         resume_phase = projection.pop("approval_resume_phase", None)
@@ -269,10 +280,125 @@ def _agent_view(
         messages=result.messages,
         tool_calls=result.tool_calls,
         interrupted=result.interrupted,
-        interrupt=result.interrupt_payload,
+        interrupt=interrupt_payload,
         tool_set_id=result.tool_set_id,
         tool_set_version=result.tool_set_version,
     )
+
+
+def _approval_binding(
+    interrupt_payload: Mapping[str, JsonValue],
+) -> tuple[ToolName, PlanId, PlanHash]:
+    requests = interrupt_payload.get("action_requests")
+    if not isinstance(requests, list) or len(requests) != 1 or not isinstance(requests[0], dict):
+        raise _api_error(
+            409,
+            "APPROVAL_BINDING_INVALID",
+            "Agent approval request is not bound to one action",
+        )
+    action_request = requests[0]
+    action = action_request.get("name")
+    arguments = action_request.get("args")
+    if not isinstance(action, str) or not isinstance(arguments, dict):
+        raise _api_error(
+            409,
+            "APPROVAL_BINDING_INVALID",
+            "Agent approval request has invalid action arguments",
+        )
+    plan_id = arguments.get("plan_id")
+    plan_hash = arguments.get("expected_plan_hash")
+    if not isinstance(plan_id, str) or not isinstance(plan_hash, str):
+        raise _api_error(
+            409,
+            "APPROVAL_BINDING_INVALID",
+            "Agent approval request is missing its immutable Plan binding",
+        )
+    try:
+        return ToolName(root=action), PlanId(root=plan_id), PlanHash(root=plan_hash)
+    except ValueError as error:
+        raise _api_error(
+            409,
+            "APPROVAL_BINDING_INVALID",
+            "Agent approval request has an invalid Plan binding",
+        ) from error
+
+
+def _create_agent_approval(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+    subject: HumanSubject,
+    interrupt_payload: Mapping[str, JsonValue],
+) -> dict[str, JsonValue]:
+    if deps.approvals is None:
+        raise _api_error(503, "APPROVAL_STORE_UNAVAILABLE", "Approval store is not configured")
+    action, plan_id, plan_hash = _approval_binding(interrupt_payload)
+    try:
+        approval = deps.approvals.create(
+            CreateApprovalRequest(
+                approval_id=ApprovalId.new(),
+                experiment_id=experiment_id,
+                plan_id=plan_id,
+                expected_plan_hash=plan_hash,
+                action=action,
+                requester=subject,
+                expires_in=AGENT_APPROVAL_TTL,
+            )
+        )
+    except (ValueError, RuntimeError) as error:
+        raise _api_error(
+            409,
+            "APPROVAL_REQUEST_REJECTED",
+            "Agent approval request could not be persisted",
+        ) from error
+    payload = dict(interrupt_payload)
+    payload["approval"] = cast(JsonValue, approval.model_dump(mode="json"))
+    return payload
+
+
+def _decide_agent_approval(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+    subject: HumanSubject,
+    interrupt_payload: Mapping[str, JsonValue],
+    request: SessionResumeRequest,
+) -> None:
+    if deps.approvals is None:
+        raise _api_error(503, "APPROVAL_STORE_UNAVAILABLE", "Approval store is not configured")
+    action, plan_id, plan_hash = _approval_binding(interrupt_payload)
+    approval_payload = interrupt_payload.get("approval")
+    if not isinstance(approval_payload, dict):
+        raise _api_error(409, "APPROVAL_BINDING_INVALID", "Approval record is missing")
+    approval_id_value = approval_payload.get("approval_id")
+    if not isinstance(approval_id_value, str):
+        raise _api_error(409, "APPROVAL_BINDING_INVALID", "Approval ID is missing")
+    approval_id = _parse_stable_id(ApprovalId, approval_id_value)
+    expected_decision = (
+        ApprovalDecision.APPROVED if request.decision == "approve" else ApprovalDecision.REJECTED
+    )
+    current = deps.approvals.get(str(approval_id))
+    if current is not None and current.decision is expected_decision:
+        if current.decided_by is None or current.decided_by.user_id != subject.user_id:
+            raise _api_error(409, "APPROVAL_DECISION_REJECTED", "Approval was already decided")
+        return
+    try:
+        deps.approvals.decide(
+            DecideApprovalRequest(
+                approval_id=approval_id,
+                experiment_id=experiment_id,
+                expected_plan_id=plan_id,
+                expected_plan_hash=plan_hash,
+                expected_action=action,
+                actor=subject,
+                decision=expected_decision,
+                comment=request.message,
+            )
+        )
+    except (ValueError, RuntimeError) as error:
+        raise _api_error(
+            409,
+            "APPROVAL_DECISION_REJECTED",
+            "Approval decision was rejected",
+        ) from error
 
 
 def _restore_session_phase(
@@ -298,6 +424,19 @@ def _restore_session_phase(
     return deps.experiments.save_state(experiment_id, state)
 
 
+def _restore_pending_session_approval(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+) -> None:
+    record = deps.experiments.get(experiment_id)
+    if record is None or not isinstance(record.graph_state.get("approval_request"), dict):
+        return
+    state = dict(record.graph_state)
+    state["phase"] = ExperimentPhase.APPROVAL.value
+    state["status"] = ExperimentStatus.WAITING_APPROVAL.value
+    deps.experiments.save_state(experiment_id, state)
+
+
 def _stream_event_line(event_type: str, payload: Mapping[str, JsonValue]) -> str:
     return (
         f"event: {event_type}\n"
@@ -309,17 +448,28 @@ def _agent_event_stream(
     deps: ApiDependencies,
     experiment_id: ExperimentId,
     events: Iterator[AgentStreamEvent],
+    subject: HumanSubject,
+    *,
+    restore_approval_on_error: bool = False,
 ) -> Iterator[str]:
     """Serialize Agent v2 events and persist the final session projection."""
+    completed = False
     try:
         for event in events:
             payload = dict(event.payload)
             if event.result is not None:
-                session = _agent_view(deps, experiment_id, event.result)
+                session = _agent_view(deps, experiment_id, event.result, subject)
                 payload["session"] = cast(dict[str, JsonValue], session.model_dump(mode="json"))
+                completed = True
+            elif event.event_type == "run.error" and restore_approval_on_error:
+                _restore_pending_session_approval(deps, experiment_id)
             yield _stream_event_line(event.event_type, payload)
     except AgentRuntimeError as error:
+        if restore_approval_on_error:
+            _restore_pending_session_approval(deps, experiment_id)
         yield _stream_event_line("run.error", {"code": error.code})
+    if restore_approval_on_error and not completed:
+        _restore_pending_session_approval(deps, experiment_id)
     yield _stream_event_line("stream.end", {})
 
 
@@ -400,7 +550,7 @@ def create_app(
                 message=body.message,
                 environment=agent_environment(experiment_id, subject),
             )
-            return _agent_view(dependencies, experiment_id, result)
+            return _agent_view(dependencies, experiment_id, result, subject)
         except ValueError as error:
             raise _api_error(422, "VALIDATION_ERROR", str(error)) from error
         except AgentRuntimeError as error:
@@ -474,7 +624,7 @@ def create_app(
                 message=body.message,
                 environment=agent_environment(typed_experiment_id, subject),
             )
-            return _agent_view(dependencies, typed_experiment_id, result)
+            return _agent_view(dependencies, typed_experiment_id, result, subject)
         except RuntimeError as error:
             raise _api_error(
                 409, "AGENT_TURN_FAILED", "Agent turn could not be completed"
@@ -501,6 +651,16 @@ def create_app(
                 "APPROVAL_SELF_DECISION",
                 "Requester cannot approve its own session",
             )
+        interrupt_payload = record.graph_state.get("approval_request")
+        if not isinstance(interrupt_payload, dict):
+            raise _api_error(409, "APPROVAL_BINDING_INVALID", "Approval record is missing")
+        _decide_agent_approval(
+            dependencies,
+            typed_experiment_id,
+            subject,
+            interrupt_payload,
+            body,
+        )
         record = _restore_session_phase(dependencies, typed_experiment_id, record)
         try:
             result = agent.resume(
@@ -509,8 +669,9 @@ def create_app(
                 message=body.message,
                 environment=agent_environment(typed_experiment_id, subject),
             )
-            return _agent_view(dependencies, typed_experiment_id, result)
+            return _agent_view(dependencies, typed_experiment_id, result, subject)
         except RuntimeError as error:
+            _restore_pending_session_approval(dependencies, typed_experiment_id)
             raise _api_error(
                 409, "AGENT_RESUME_FAILED", "Agent Interrupt could not be resumed"
             ) from error
@@ -541,7 +702,7 @@ def create_app(
             environment=agent_environment(typed_experiment_id, subject),
         )
         return StreamingResponse(
-            _agent_event_stream(dependencies, typed_experiment_id, events),
+            _agent_event_stream(dependencies, typed_experiment_id, events, subject),
             media_type="text/event-stream",
         )
 
@@ -566,6 +727,16 @@ def create_app(
                 "APPROVAL_SELF_DECISION",
                 "Requester cannot approve its own session",
             )
+        interrupt_payload = record.graph_state.get("approval_request")
+        if not isinstance(interrupt_payload, dict):
+            raise _api_error(409, "APPROVAL_BINDING_INVALID", "Approval record is missing")
+        _decide_agent_approval(
+            dependencies,
+            typed_experiment_id,
+            subject,
+            interrupt_payload,
+            body,
+        )
         record = _restore_session_phase(dependencies, typed_experiment_id, record)
         events = stream_resume(
             experiment_id=typed_experiment_id,
@@ -574,7 +745,13 @@ def create_app(
             environment=agent_environment(typed_experiment_id, subject),
         )
         return StreamingResponse(
-            _agent_event_stream(dependencies, typed_experiment_id, events),
+            _agent_event_stream(
+                dependencies,
+                typed_experiment_id,
+                events,
+                subject,
+                restore_approval_on_error=True,
+            ),
             media_type="text/event-stream",
         )
 

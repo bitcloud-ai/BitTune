@@ -10,7 +10,8 @@ from typing import NoReturn
 from sqlalchemy.orm import Session, sessionmaker
 
 from autopilot.domain.budgets import ExecutionBudget
-from autopilot.domain.enums import ExperimentPhase
+from autopilot.domain.enums import ExperimentPhase, ExperimentStatus
+from autopilot.domain.hashing import compute_content_hash
 from autopilot.domain.identifiers import (
     ApprovalId,
     ExperimentId,
@@ -19,15 +20,19 @@ from autopilot.domain.identifiers import (
     ToolName,
     ToolSetId,
 )
+from autopilot.domain.requirements import RequirementSpec
 from autopilot.gateway.approval_ports import ApprovalRepository
 from autopilot.gateway.errors import ResourceUnavailableError, WorkflowStateError
 from autopilot.gateway.models import (
+    AuthorizedReadOnlyCall,
     JobAuthorizationDraft,
     JobIdempotencyClaim,
     PlanAuthorizationMaterial,
     ToolSetSnapshot,
 )
 from autopilot.gateway.mvp_tools import (
+    ExperimentPlanResult,
+    ExperimentPlanWriter,
     MvpToolDispatcher,
     ProviderStatus,
     mvp_tool_registrations,
@@ -174,6 +179,42 @@ class _SessionAudit(GatewayAuditSink):
             SqlAlchemyAuditRepository(session).append(event)
 
 
+class _SessionExperimentPlans(ExperimentPlanWriter):
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self._sessions = sessions
+
+    def create(
+        self,
+        requirements: RequirementSpec,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> ExperimentPlanResult:
+        with self._sessions.begin() as session:
+            row = session.get(
+                ExperimentRow,
+                str(authorization.experiment_id),
+                with_for_update=True,
+            )
+            if row is None:
+                raise WorkflowStateError(EXPERIMENT_NOT_FOUND)
+            if row.phase != ExperimentPhase.REQUIREMENTS.value:
+                raise WorkflowStateError(EXPERIMENT_PHASE_INVALID)
+            serialized_requirements = requirements.model_dump(mode="json")
+            state = dict(row.graph_state_json)
+            state["requirements"] = serialized_requirements
+            state["phase"] = ExperimentPhase.ENVIRONMENT.value
+            state["status"] = ExperimentStatus.ACTIVE.value
+            row.requirements_json = serialized_requirements
+            row.graph_state_json = state
+            row.phase = ExperimentPhase.ENVIRONMENT.value
+            row.status = ExperimentStatus.ACTIVE.value
+            row.updated_at = authorization.authorized_at
+            session.flush()
+        return ExperimentPlanResult(
+            experiment_id=authorization.experiment_id,
+            requirements_hash=compute_content_hash(requirements),
+        )
+
+
 class _UnavailableResources(ResourceReservationPort):
     """Keep high-cost actions denied until the real resource coordinator is injected."""
 
@@ -198,7 +239,10 @@ def build_production_gateway(
 ) -> ProductionGatewayAssembly:
     """Assemble the existing Gateway pipeline without exposing Runner or Provider clients."""
     registrations = mvp_tool_registrations()
-    dispatcher: ToolDispatcher = MvpToolDispatcher(provider_statuses=provider_statuses)
+    dispatcher: ToolDispatcher = MvpToolDispatcher(
+        provider_statuses=provider_statuses,
+        experiment_plans=_SessionExperimentPlans(sessions),
+    )
     dependencies = GatewayDependencies(
         registry=ToolRegistry(registrations),
         policy=policy,

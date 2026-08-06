@@ -38,7 +38,10 @@ optimize with Optuna, verify candidates, and explain the evidence. Use only the 
 the current turn. Never invent measured metrics, provider results, approvals, resource state, or
 artifact references. Never request or emit credentials, shell commands, raw Docker options,
 arbitrary paths, or provider CLI flags. Long-running actions return a job ID; use status and result
-tools instead of waiting. Explain any approval request before execution."""
+tools instead of waiting. In the requirements phase, structure the user's explicit model, workload,
+SLO, budget, and permissions with create_experiment_plan before proposing execution. Do not invent
+missing immutable model revisions, budgets, or permissions. Explain any approval request before
+execution."""
 AGENT_ENVIRONMENT_MISMATCH = "Agent environment does not match the Experiment"
 MESSAGE_STREAM_PART_SIZE = 2
 

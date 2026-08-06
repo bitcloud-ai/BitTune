@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -15,9 +15,15 @@ from autopilot.capabilities.environment.tools import CreateEnvironmentPlanInput
 from autopilot.capabilities.evidence.tools import EvidenceQueryInput
 from autopilot.capabilities.optimization.tools import CreateOptimizationPlanInput
 from autopilot.domain.base import NonEmptyStr, SchemaVersion, StrictModel
+from autopilot.domain.budgets import ExecutionBudget
+from autopilot.domain.constraints import SloSpec
 from autopilot.domain.enums import ExperimentPhase, RiskLevel, UserRole
-from autopilot.domain.identifiers import JobId, ToolName
+from autopilot.domain.identifiers import ExperimentId, JobId, Sha256Digest, ToolName
+from autopilot.domain.identities import HumanSubject
+from autopilot.domain.models import ModelRef
 from autopilot.domain.plans import PlanExecutionRequest
+from autopilot.domain.requirements import RequirementSpec
+from autopilot.domain.workloads import WorkloadSpec
 from autopilot.gateway.errors import ToolDispatchError
 from autopilot.gateway.models import (
     AuthorizedReadOnlyCall,
@@ -30,10 +36,50 @@ from autopilot.gateway.registry import ToolRegistration
 ProviderStatus = Literal["verified", "not_configured", "blocked"]
 PROVIDER_READ_NOT_CONFIGURED = "registered Provider read operation is not configured"
 PROVIDER_EXECUTION_NOT_CONFIGURED = "Provider execution and Worker are not configured"
+EXPERIMENT_PLAN_STORE_NOT_CONFIGURED = "Experiment Plan store is not configured"
+EXPERIMENT_PLAN_REQUIRES_HUMAN = "Experiment Plan requires an authenticated human"
 
 
 class CapabilitiesQuery(StrictModel):
     schema_version: Literal["capabilities-query/v1"] = "capabilities-query/v1"
+
+
+class CreateExperimentPlanInput(StrictModel):
+    schema_version: Literal["create-experiment-plan-input/v1"] = "create-experiment-plan-input/v1"
+    model_ref: ModelRef
+    priority: Literal["balanced", "latency", "throughput"]
+    workload: WorkloadSpec
+    slo: SloSpec
+    budget: ExecutionBudget
+    allow_model_download: bool
+    allow_container_start: bool
+
+    def requirement(self, subject: HumanSubject) -> RequirementSpec:
+        return RequirementSpec(
+            created_by=subject.user_id,
+            model_ref=self.model_ref,
+            priority=self.priority,
+            workload=self.workload,
+            slo=self.slo,
+            budget=self.budget,
+            allow_model_download=self.allow_model_download,
+            allow_container_start=self.allow_container_start,
+        )
+
+
+class ExperimentPlanResult(StrictModel):
+    schema_version: Literal["experiment-plan-result/v1"] = "experiment-plan-result/v1"
+    experiment_id: ExperimentId
+    requirements_hash: Sha256Digest
+    next_phase: Literal[ExperimentPhase.ENVIRONMENT] = ExperimentPhase.ENVIRONMENT
+
+
+class ExperimentPlanWriter(Protocol):
+    def create(
+        self,
+        requirements: RequirementSpec,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> ExperimentPlanResult: ...
 
 
 class JobQuery(StrictModel):
@@ -80,6 +126,7 @@ class MvpToolDispatcher:
     """
 
     provider_statuses: Mapping[str, ProviderStatus]
+    experiment_plans: ExperimentPlanWriter | None = None
 
     def invoke_read_only(
         self,
@@ -87,8 +134,19 @@ class MvpToolDispatcher:
         arguments: BaseModel,
         authorization: AuthorizedReadOnlyCall,
     ) -> BaseModel:
-        del arguments, authorization
-        if str(registration.definition.name) != "get_mvp_capabilities_result":
+        tool_name = str(registration.definition.name)
+        if tool_name == "create_experiment_plan":
+            if self.experiment_plans is None:
+                raise ToolDispatchError(EXPERIMENT_PLAN_STORE_NOT_CONFIGURED)
+            if not isinstance(arguments, CreateExperimentPlanInput) or not isinstance(
+                authorization.subject, HumanSubject
+            ):
+                raise ToolDispatchError(EXPERIMENT_PLAN_REQUIRES_HUMAN)
+            return self.experiment_plans.create(
+                arguments.requirement(authorization.subject),
+                authorization,
+            )
+        if tool_name != "get_mvp_capabilities_result":
             raise ToolDispatchError(PROVIDER_READ_NOT_CONFIGURED)
         return MvpCapabilitiesResult(
             supported_phases=tuple(ExperimentPhase),
@@ -236,6 +294,14 @@ def mvp_tool_registrations() -> tuple[ToolRegistration, ...]:
             CapabilitiesQuery,
         ),
         _ToolSpec(
+            "create_experiment_plan",
+            "create-experiment-plan-input/v1",
+            RiskLevel.L0,
+            (ExperimentPhase.REQUIREMENTS,),
+            operator_roles,
+            CreateExperimentPlanInput,
+        ),
+        _ToolSpec(
             "create_environment_plan",
             "create-environment-plan-input/v1",
             RiskLevel.L0,
@@ -359,6 +425,9 @@ def provider_statuses(*, verified: Sequence[str] = ()) -> dict[str, ProviderStat
 
 __all__ = [
     "CapabilitiesQuery",
+    "CreateExperimentPlanInput",
+    "ExperimentPlanResult",
+    "ExperimentPlanWriter",
     "JobQuery",
     "MvpCapabilitiesResult",
     "MvpToolDispatcher",

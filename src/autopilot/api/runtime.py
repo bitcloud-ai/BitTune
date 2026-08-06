@@ -17,6 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from autopilot.api.app import ApiDependencies, create_app
 from autopilot.api.repositories import (
+    SqlAlchemyApprovalStore,
     SqlAlchemyArtifactQuery,
     SqlAlchemyDeploymentStore,
     SqlAlchemyExperimentStore,
@@ -207,6 +208,7 @@ def create_production_app(settings: ApiSettings | None = None) -> FastAPI:
                 else None
             ),
             plans=SqlAlchemyPlanStore(sessions),
+            approvals=SqlAlchemyApprovalStore(sessions),
             deployments=SqlAlchemyDeploymentStore(sessions),
             artifacts=SqlAlchemyArtifactQuery(sessions, artifact_store),
             agent_environment=(

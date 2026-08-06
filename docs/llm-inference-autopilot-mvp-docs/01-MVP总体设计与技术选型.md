@@ -242,7 +242,8 @@ MVP 的用户入口固定为 Click + Textual TUI。Click 提供安装入口和�
 - `postgres`：Graph Checkpoint、业务元数据、Optuna Storage、MLflow Backend；
 - `mlflow`：实验查询和工件元数据；
 - `opa`：策略判定；
-- 可选 `web-ui`：前端。
+
+MVP 不部署 Web UI；交互入口固定为本机 Click + Textual 客户端，通过 FastAPI REST/SSE 访问控制面。
 
 ### 9.2 宿主机服务
 
@@ -257,7 +258,7 @@ MVP 的用户入口固定为 Click + Textual TUI。Click 提供安装入口和�
 
 - vLLM 服务容器；
 - EvalScope Job 容器；
-- 可选 llm-d Planner CLI/服务容器；
+- 固定 Digest 的 llm-d Planner 一次性容器；
 - 每个 Trial 使用明确的配置和输出目录。
 
 ### 9.4 为什么 Host Runner 不放进 Agent 容器

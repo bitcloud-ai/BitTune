@@ -20,6 +20,7 @@ from autopilot.domain.enums import (
     RiskLevel,
 )
 from autopilot.domain.identifiers import (
+    ApprovalId,
     ArtifactId,
     DeploymentId,
     ExperimentId,
@@ -29,7 +30,7 @@ from autopilot.domain.identifiers import (
     UserId,
 )
 from autopilot.evidence.models import ArtifactMetadata
-from autopilot.gateway.approval_ports import DecideApprovalRequest
+from autopilot.gateway.approval_ports import CreateApprovalRequest, DecideApprovalRequest
 from autopilot.infrastructure.artifacts import LocalArtifactStore
 from autopilot.infrastructure.database.models import (
     ArtifactRow,
@@ -37,6 +38,7 @@ from autopilot.infrastructure.database.models import (
     ExperimentRow,
     PlanRow,
 )
+from autopilot.infrastructure.database.repositories import SqlAlchemyApprovalRepository
 
 EXPERIMENT_ALREADY_EXISTS = "Experiment already exists"
 
@@ -114,6 +116,8 @@ class ArtifactQuery(Protocol):
 
 
 class ApprovalStore(Protocol):
+    def create(self, request: CreateApprovalRequest) -> ApprovalRecord: ...
+
     def get(self, approval_id: str) -> ApprovalRecord | None: ...
 
     def decide(self, request: DecideApprovalRequest) -> ApprovalRecord: ...
@@ -254,6 +258,25 @@ class SqlAlchemyPlanStore:
             )
 
 
+class SqlAlchemyApprovalStore:
+    """Own transaction boundaries for API approval requests and decisions."""
+
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self._sessions = sessions
+
+    def create(self, request: CreateApprovalRequest) -> ApprovalRecord:
+        with self._sessions.begin() as session:
+            return SqlAlchemyApprovalRepository(session).create(request)
+
+    def get(self, approval_id: str) -> ApprovalRecord | None:
+        with self._sessions.begin() as session:
+            return SqlAlchemyApprovalRepository(session).get(ApprovalId(root=approval_id))
+
+    def decide(self, request: DecideApprovalRequest) -> ApprovalRecord:
+        with self._sessions.begin() as session:
+            return SqlAlchemyApprovalRepository(session).decide(request)
+
+
 class SqlAlchemyDeploymentStore:
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self._sessions = sessions
@@ -360,6 +383,7 @@ __all__ = [
     "LocalArtifactQuery",
     "PlanProjection",
     "PlanStore",
+    "SqlAlchemyApprovalStore",
     "SqlAlchemyArtifactQuery",
     "SqlAlchemyDeploymentStore",
     "SqlAlchemyExperimentStore",

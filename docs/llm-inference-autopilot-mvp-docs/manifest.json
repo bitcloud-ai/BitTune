@@ -7,9 +7,9 @@
   "documents": [
     {
       "file": "01-MVP总体设计与技术选型.md",
-      "bytes": 14490,
-      "lines": 412,
-      "sha256": "b22c31a9e920694a8b5a9cbd77e2fa5022aed50bc8d98e5742f0f4805b378157"
+      "bytes": 14593,
+      "lines": 413,
+      "sha256": "77ef2960b1043f88d876965b83f20d34cbabb87c0e245fd990377c6b3f4a39e0"
     },
     {
       "file": "02-Agent工作流与能力编排设计.md",

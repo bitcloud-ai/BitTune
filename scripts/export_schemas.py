@@ -59,6 +59,7 @@ from autopilot.gateway.models import (
     ToolDefinition,
     ToolSetSnapshot,
 )
+from autopilot.gateway.mvp_tools import CreateExperimentPlanInput, ExperimentPlanResult
 from autopilot.graph.agent import AgentMessageView, AgentToolCallView
 from autopilot.graph.model_provider import BenchmarkIntent, FailureAnalysis, ReportDraft
 from autopilot.graph.runtime_defaults import UnavailableModelProvider, UnavailableReconciler
@@ -94,6 +95,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "deployment-candidate-v1": DeploymentCandidate,
     "deployment-execution-specification-v1": DeploymentExecutionSpecification,
     "error-envelope-v1": ErrorEnvelope,
+    "experiment-plan-result-v1": ExperimentPlanResult,
     "evidence-bundle-manifest-v1": EvidenceBundleManifest,
     "evidence-bundle-v1": EvidenceBundle,
     "execution-budget-v1": ExecutionBudget,
@@ -102,6 +104,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "hardware-passport-v1": HardwarePassport,
     "job-v1": JobRecord,
     "job-authorization-v1": JobAuthorizationRecord,
+    "create-experiment-plan-input-v1": CreateExperimentPlanInput,
     "model-profile-v1": ModelProfile,
     "optimization-trial-v1": TrialRecord,
     "plan-execution-request-v1": PlanExecutionRequest,
