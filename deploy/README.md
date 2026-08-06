@@ -30,6 +30,24 @@ API 容器使用固定非 Root UID、只读根文件系统、临时 `tmpfs`、`d
 因此没有用空循环进程冒充 Job 执行。G0 固定 Provider 后，Worker 通过 PostgreSQL Lease
 Queue 和受控 Runner 接入，仍需保持同一镜像 Digest 和本契约。
 
+## CLI 客户端
+
+控制面启动后可从受控客户端使用仓库提供的 Click CLI。CLI 只调用 REST/SSE API，审批、
+策略和执行仍由服务端处理：
+
+```bash
+export AUTOPILOT_API_URL=http://127.0.0.1:8000
+export AUTOPILOT_API_TOKEN='your-token'
+uv run autopilot create '为指定模型生成单 GPU 优化计划'
+uv run autopilot status <experiment_id>
+uv run autopilot events <experiment_id>
+uv run autopilot resume <experiment_id> --decision approved
+uv run autopilot cancel <experiment_id>
+```
+
+不要把 Token 放进命令行参数、仓库文件或日志。CLI 未设置 `AUTOPILOT_API_TOKEN` 时会改为
+交互式输入。
+
 ## 备份与恢复
 
 停止写入后执行 PostgreSQL 逻辑备份，并同时备份 Artifact 根目录和 `.env` 之外的 Secret

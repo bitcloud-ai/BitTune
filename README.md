@@ -40,3 +40,24 @@ Secret 文件、数据库迁移以及备份恢复见 [deploy/README.md](deploy/R
 
 当前未通过 G0 固定真实 Provider Profile 时，控制面会安全启动但对环境检测、部署、压测、
 调优和证据归档保持 fail-closed；不能把 Fake Adapter 的结果当作 RTX 5090 性能结果。
+
+## CLI 交互
+
+项目提供基于开源 Click 框架的 `autopilot` 命令。CLI 是 REST/SSE 客户端，不复制服务端
+Graph、审批或 Provider 逻辑。先设置 API 地址和 Bearer Token；Token 不支持命令行参数，
+未设置环境变量时会通过交互式输入读取：
+
+```bash
+export AUTOPILOT_API_URL=http://127.0.0.1:8000
+export AUTOPILOT_API_TOKEN='your-token'
+uv run autopilot --help
+uv run autopilot create '在指定 5090 上为 7B 模型优化吞吐，TTFT P95 不超过 2 秒'
+uv run autopilot status <experiment_id>
+uv run autopilot events <experiment_id>
+uv run autopilot resume <experiment_id> --decision approved --comment '人工确认部署计划'
+uv run autopilot cancel <experiment_id>
+```
+
+`create` 返回的 `experiment_id` 用于后续查询、恢复和取消。长时间操作通过服务端 Job
+异步执行，`events` 只输出结构化 SSE；真实 GPU Provider 未配置时服务端按契约拒绝执行，
+不会伪造性能结果。

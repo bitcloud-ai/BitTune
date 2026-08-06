@@ -78,6 +78,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "click" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "langgraph" },
@@ -115,6 +116,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = "==1.19.0" },
+    { name = "click", specifier = "==8.4.2" },
     { name = "docker", marker = "extra == 'runner'", specifier = "==7.2.0" },
     { name = "fastapi", specifier = "==0.141.1" },
     { name = "httpx", specifier = "==0.28.1" },

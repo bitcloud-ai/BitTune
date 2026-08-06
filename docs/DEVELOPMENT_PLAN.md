@@ -140,6 +140,7 @@ MVP 完成必须同时满足：
 
 - 固定 Digest 的 Compose 控制面、OPA Policy Bundle、配置模板、备份和恢复文档；
 - API 容器非 Root、只读根文件系统、无 Docker Socket；
+- 基于 Click 的 `autopilot` CLI，覆盖 Experiment 创建、状态查询、SSE 事件、审批恢复和取消；
 - PostgreSQL、OPA、MLflow、API 和 Fake Runner 集成验收；
 - 生成 JSON Schema、OpenAPI 和能力 Manifest 一致性检查。
 
@@ -212,6 +213,7 @@ uv run pytest tests/unit tests/contract
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
-  配置模板、迁移入口、备份恢复文档、Compose 安全契约测试，以及代码生成的 OpenAPI。
+  配置模板、迁移入口、备份恢复文档、基于 Click 的 REST/SSE CLI、Compose 安全契约测试，
+  以及代码生成的 OpenAPI。
   M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境；
   未创建虚假的 Worker 进程，真实 Provider Profile 固定后再接入 PostgreSQL Lease Queue。

@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic==1.19.0",
+    "click==8.4.2",
     "fastapi==0.141.1",
     "httpx==0.28.1",
     "langgraph==1.2.10",
@@ -23,6 +24,9 @@ dependencies = [
     "sqlalchemy==2.0.51",
     "uvicorn==0.52.1",
 ]
+
+[project.scripts]
+autopilot = "autopilot.cli:main"
 
 [project.optional-dependencies]
 evidence = ["mlflow-skinny==3.15.1"]
@@ -84,6 +88,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "PLR2004", "S101"]
 "src/autopilot/api/app.py" = ["ARG001", "PLR0915", "TRY003"]
+"src/autopilot/cli.py" = ["TRY003"]
 "src/autopilot/graph/workflow.py" = ["ARG002", "PLR0911", "PLR0915", "TRY003", "TRY301"]
 
 [tool.ruff.format]
