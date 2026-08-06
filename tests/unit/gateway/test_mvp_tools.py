@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from autopilot.capabilities.environment.tools import CreateEnvironmentPlanInput
 from autopilot.domain.enums import (
     ExperimentPhase,
+    JobKind,
     JobStatus,
     PlanKind,
     PlanStatus,
@@ -21,6 +22,7 @@ from autopilot.domain.identifiers import (
     UserId,
 )
 from autopilot.domain.identities import HumanSubject
+from autopilot.domain.jobs import JobRecord
 from autopilot.domain.plans import PlanExecutionRequest
 from autopilot.domain.requirements import RequirementSpec
 from autopilot.gateway.models import AuthorizedReadOnlyCall, JobAuthorizationDraft
@@ -28,6 +30,8 @@ from autopilot.gateway.mvp_tools import (
     CreateExperimentPlanInput,
     DomainPlanResult,
     ExperimentPlanResult,
+    JobQuery,
+    JobQueryResult,
     JobSubmissionResult,
     MvpToolDispatcher,
     mvp_tool_registrations,
@@ -98,6 +102,24 @@ class RecordingJobs:
             plan_id=authorization.plan_id,
             status=JobStatus.QUEUED,
             created=True,
+        )
+
+    def get(
+        self,
+        registration: ToolRegistration,
+        query: JobQuery,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> JobQueryResult:
+        self.registration = registration
+        return JobQueryResult(
+            job=JobRecord(
+                job_id=query.job_id,
+                experiment_id=authorization.experiment_id,
+                plan_id=PlanId.new(),
+                kind=JobKind.ENVIRONMENT,
+                status=JobStatus.QUEUED,
+                submitted_at=authorization.authorized_at,
+            )
         )
 
     def replay(
@@ -263,4 +285,34 @@ def test_start_tool_enqueues_the_authorized_plan() -> None:
     assert isinstance(result, JobSubmissionResult)
     assert result.plan_id == plan_id
     assert result.status is JobStatus.QUEUED
+    assert writer.registration is registration
+
+
+def test_job_status_tool_reads_the_persisted_job_projection() -> None:
+    registration = next(
+        item
+        for item in mvp_tool_registrations()
+        if str(item.definition.name) == "get_environment_status"
+    )
+    writer = RecordingJobs()
+    dispatcher = MvpToolDispatcher(provider_statuses=provider_statuses(), jobs=writer)
+    experiment_id = ExperimentId.new()
+    authorization = AuthorizedReadOnlyCall(
+        experiment_id=experiment_id,
+        subject=HumanSubject(user_id=UserId.new(), role=UserRole.OPERATOR),
+        action=registration.definition.name,
+        tool_schema_version=registration.definition.input_schema_version,
+        tool_set_id=ToolSetId.new(),
+        tool_set_version=Sha256Digest(root="sha256:" + "8" * 64),
+        policy_decision_id="decision-4",
+        request_hash=Sha256Digest(root="sha256:" + "7" * 64),
+        authorized_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+    job_id = JobId.new()
+
+    result = dispatcher.invoke_read_only(registration, JobQuery(job_id=job_id), authorization)
+
+    assert isinstance(result, JobQueryResult)
+    assert result.job.job_id == job_id
+    assert result.job.experiment_id == experiment_id
     assert writer.registration is registration

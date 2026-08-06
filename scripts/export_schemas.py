@@ -66,6 +66,8 @@ from autopilot.gateway.mvp_tools import (
     DomainPlanResult,
     ExperimentPlanResult,
     JobCancelRequest,
+    JobQuery,
+    JobQueryResult,
     JobSubmissionResult,
 )
 from autopilot.graph.agent import AgentMessageView, AgentToolCallView
@@ -116,6 +118,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "job-v1": JobRecord,
     "job-authorization-v1": JobAuthorizationRecord,
     "job-cancel-request-v1": JobCancelRequest,
+    "job-query-v1": JobQuery,
+    "job-query-result-v1": JobQueryResult,
     "job-submission-result-v1": JobSubmissionResult,
     "create-experiment-plan-input-v1": CreateExperimentPlanInput,
     "model-profile-v1": ModelProfile,

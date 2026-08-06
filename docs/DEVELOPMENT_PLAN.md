@@ -261,11 +261,12 @@ uv run pytest tests/unit tests/contract
   官方 PostgresSaver 生产生命周期、两处 Plan Hash 绑定的 Interrupt、远程
   OpenAI-compatible ModelProvider、FastAPI REST/SSE/OpenAPI 路由、PostgreSQL 实验与
   Deployment 投影、Artifact 查询、Bearer Token 配置装配、fail-closed Provider/外部状态
-  默认值、LangChain `create_agent`、v2 Streaming、Textual TUI，以及 51 个由代码生成的公共
+  默认值、LangChain `create_agent`、v2 Streaming、Textual TUI，以及 58 个由代码生成的公共
   JSON Schema。`create_experiment_plan` 已通过 Gateway 将认证主体、模型、Workload、SLO、预算和
   权限写入 PostgreSQL Experiment 投影与 Graph State；Agent Interrupt 已接入独立 Approval v2，
   同步和 SSE 恢复都会校验 Plan ID/Hash/Action，并在模型恢复失败时回到可重试的审批状态。
-  Graph/API/TUI Fake 测试已通过；公共 Schema 已由代码生成并增至 56 个；真实
+  Graph/API/TUI Fake 测试已通过；公共 Schema 已由代码生成并增至 58 个；Agent 的
+  `get_*_status`/`get_*_result` 已通过 Gateway 读取并校验持久化 Job 投影；真实
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、

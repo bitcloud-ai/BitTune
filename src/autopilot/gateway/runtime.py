@@ -65,6 +65,8 @@ from autopilot.gateway.mvp_tools import (
     ExperimentPlanResult,
     ExperimentPlanWriter,
     JobCancelRequest,
+    JobQuery,
+    JobQueryResult,
     JobSubmissionResult,
     MvpToolDispatcher,
     ProviderStatus,
@@ -106,6 +108,7 @@ PLAN_SPECIFICATION_INVALID = "Plan specification does not match its domain kind"
 EXPERIMENT_REQUIREMENTS_MISSING = "Experiment requirements are not available"
 JOB_ACTION_NOT_SUPPORTED = "Job action is not supported by the MVP dispatcher"
 JOB_REPLAY_MISMATCH = "persisted Job does not match the authorized request"
+JOB_QUERY_MISMATCH = "persisted Job does not match the requested Experiment or capability"
 
 
 class _SessionWorkflow(WorkflowStateReader):
@@ -395,6 +398,35 @@ class _SessionJobs(DomainJobWriter):
             status=job.status,
             created=created,
         )
+
+    def get(
+        self,
+        registration: ToolRegistration,
+        query: JobQuery,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> JobQueryResult:
+        expected_kind = self._kind_for_query(registration)
+        with self._sessions() as session:
+            job = SqlAlchemyJobRepository(session).get(query.job_id)
+        if (
+            job is None
+            or job.experiment_id != authorization.experiment_id
+            or job.kind is not expected_kind
+        ):
+            raise ToolDispatchError(JOB_QUERY_MISMATCH)
+        return JobQueryResult(job=job)
+
+    @classmethod
+    def _kind_for_query(cls, registration: ToolRegistration) -> JobKind:
+        name = str(registration.definition.name)
+        if name.startswith("get_"):
+            capability = name.removeprefix("get_").removesuffix("_status").removesuffix("_result")
+            if capability == "environment":
+                return JobKind.ENVIRONMENT
+            kind = cls._KINDS.get(f"start_{capability}")
+            if kind is not None:
+                return kind
+        raise ToolDispatchError(JOB_ACTION_NOT_SUPPORTED)
 
     def enqueue(
         self,

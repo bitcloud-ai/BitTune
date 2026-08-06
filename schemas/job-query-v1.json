@@ -1,0 +1,25 @@
+{
+  "$defs": {
+    "JobId": {
+      "title": "JobId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "$ref": "#/$defs/JobId"
+    },
+    "schema_version": {
+      "const": "job-query/v1",
+      "default": "job-query/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id"
+  ],
+  "title": "JobQuery",
+  "type": "object"
+}

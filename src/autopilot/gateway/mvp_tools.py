@@ -34,6 +34,7 @@ from autopilot.domain.identifiers import (
     ToolName,
 )
 from autopilot.domain.identities import HumanSubject
+from autopilot.domain.jobs import JobRecord
 from autopilot.domain.models import ModelRef
 from autopilot.domain.plans import PlanExecutionRequest
 from autopilot.domain.requirements import RequirementSpec
@@ -130,7 +131,21 @@ class JobSubmissionResult(StrictModel):
     created: bool
 
 
+class JobQueryResult(StrictModel):
+    """Persisted Job projection returned by status and result Tools."""
+
+    schema_version: Literal["job-query-result/v1"] = "job-query-result/v1"
+    job: JobRecord
+
+
 class DomainJobWriter(Protocol):
+    def get(
+        self,
+        registration: ToolRegistration,
+        query: JobQuery,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> JobQueryResult: ...
+
     def enqueue(
         self,
         registration: ToolRegistration,
@@ -205,7 +220,7 @@ class MvpToolDispatcher:
     plans: DomainPlanWriter | None = None
     jobs: DomainJobWriter | None = None
 
-    def invoke_read_only(
+    def invoke_read_only(  # noqa: PLR0912
         self,
         registration: ToolRegistration,
         arguments: BaseModel,
@@ -252,6 +267,10 @@ class MvpToolDispatcher:
                 specification=specification,
                 authorization=authorization,
             )
+        if isinstance(arguments, JobQuery):
+            if self.jobs is None or not tool_name.startswith("get_"):
+                raise ToolDispatchError(PROVIDER_READ_NOT_CONFIGURED)
+            return self.jobs.get(registration, arguments, authorization)
         if tool_name != "get_mvp_capabilities_result":
             raise ToolDispatchError(PROVIDER_READ_NOT_CONFIGURED)
         return MvpCapabilitiesResult(
@@ -554,6 +573,7 @@ __all__ = [
     "ExperimentPlanWriter",
     "JobCancelRequest",
     "JobQuery",
+    "JobQueryResult",
     "JobSubmissionResult",
     "MvpCapabilitiesResult",
     "MvpToolDispatcher",
