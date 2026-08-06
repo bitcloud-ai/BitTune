@@ -14,7 +14,12 @@ from autopilot.capabilities.benchmark.domain.models import (
     BenchmarkResult,
 )
 from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
-from autopilot.capabilities.evidence.domain.models import ChampionPolicy
+from autopilot.capabilities.evidence.domain.models import (
+    ChampionPolicy,
+    EvidenceBundle,
+    EvidenceBundleManifest,
+)
+from autopilot.capabilities.optimization.application.verification import VerificationRunState
 from autopilot.capabilities.optimization.domain.models import VllmSearchSpaceSpec
 from autopilot.domain.approvals import ApprovalRecord
 from autopilot.domain.artifacts import ArtifactRef
@@ -48,6 +53,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "deployment-candidate-v1": DeploymentCandidate,
     "deployment-execution-specification-v1": DeploymentExecutionSpecification,
     "error-envelope-v1": ErrorEnvelope,
+    "evidence-bundle-manifest-v1": EvidenceBundleManifest,
+    "evidence-bundle-v1": EvidenceBundle,
     "execution-budget-v1": ExecutionBudget,
     "hardware-passport-v1": HardwarePassport,
     "job-v1": JobRecord,
@@ -62,6 +69,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "tool-definition-v1": ToolDefinition,
     "tool-set-snapshot-v1": ToolSetSnapshot,
     "verification-summary-v1": VerificationSummary,
+    "verification-run-state-v1": VerificationRunState,
     "vllm-search-space-v1": VllmSearchSpaceSpec,
     "workload-v1": WorkloadSpec,
 }

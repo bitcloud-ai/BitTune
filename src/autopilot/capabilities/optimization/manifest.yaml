@@ -18,7 +18,8 @@
   },
   "requires": {
     "phases": [
-      "optimization"
+      "optimization",
+      "verification"
     ],
     "resources": {
       "cpu": true,
@@ -55,11 +56,13 @@
     }
   ],
   "schema_versions": [
-    "vllm-search-space/v1"
+    "vllm-search-space/v1",
+    "verification-run-state/v1"
   ],
   "supports": {
     "modes": [
-      "single_objective"
+      "single_objective",
+      "top_candidate_verification"
     ]
   }
 }

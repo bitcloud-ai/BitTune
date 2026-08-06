@@ -1,0 +1,428 @@
+{
+  "$defs": {
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CandidateId": {
+      "title": "CandidateId",
+      "type": "string"
+    },
+    "ChampionSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "champion_candidate_id": {
+          "$ref": "#/$defs/CandidateId"
+        },
+        "fallback_candidate_id": {
+          "$ref": "#/$defs/CandidateId"
+        },
+        "max_coefficient_of_variation": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Max Coefficient Of Variation",
+          "type": "number"
+        },
+        "minimum_relative_improvement": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Minimum Relative Improvement",
+          "type": "number"
+        },
+        "noise_multiplier": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Noise Multiplier",
+          "type": "number"
+        },
+        "objective": {
+          "$ref": "#/$defs/ObjectiveSpec"
+        },
+        "requires_human_approval": {
+          "const": true,
+          "default": true,
+          "title": "Requires Human Approval",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "champion-selection/v2",
+          "default": "champion-selection/v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "selection_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "verified_candidates": {
+          "items": {
+            "$ref": "#/$defs/VerificationSummary"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Verified Candidates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "champion_candidate_id",
+        "fallback_candidate_id",
+        "objective",
+        "verified_candidates",
+        "max_coefficient_of_variation",
+        "noise_multiplier",
+        "minimum_relative_improvement",
+        "selection_artifact"
+      ],
+      "title": "ChampionSelection",
+      "type": "object"
+    },
+    "DerivedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "calculation_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "input_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Input Artifacts",
+          "type": "array"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "source": {
+          "const": "derived",
+          "default": "derived",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "calculation_artifact",
+        "input_artifacts"
+      ],
+      "title": "DerivedProvenance",
+      "type": "object"
+    },
+    "EvidenceBundleManifest": {
+      "additionalProperties": false,
+      "description": "Complete, replayable Artifact index for one verified optimization result.",
+      "properties": {
+        "candidate_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 480,
+          "minItems": 1,
+          "title": "Candidate Artifacts",
+          "type": "array"
+        },
+        "champion_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "checksums_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "code_revision": {
+          "pattern": "^[0-9a-f]{40}(?:[0-9a-f]{24})?$",
+          "title": "Code Revision",
+          "type": "string"
+        },
+        "engine_image_digest": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "experiment_id": {
+          "$ref": "#/$defs/ExperimentId"
+        },
+        "hardware_passport": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "model_profile": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "model_revision": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "plan_hash": {
+          "$ref": "#/$defs/PlanHash"
+        },
+        "plan_id": {
+          "$ref": "#/$defs/PlanId"
+        },
+        "report_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "requirements": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "schema_version": {
+          "const": "evidence-bundle-manifest/v1",
+          "default": "evidence-bundle-manifest/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "slo": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "trial_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 2000,
+          "minItems": 1,
+          "title": "Trial Artifacts",
+          "type": "array"
+        },
+        "verification_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Verification Artifacts",
+          "type": "array"
+        },
+        "workload": {
+          "$ref": "#/$defs/ArtifactRef"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "plan_id",
+        "plan_hash",
+        "hardware_passport",
+        "model_profile",
+        "model_revision",
+        "engine_image_digest",
+        "requirements",
+        "workload",
+        "slo",
+        "candidate_artifacts",
+        "trial_artifacts",
+        "verification_artifacts",
+        "champion_artifact",
+        "report_artifact",
+        "checksums_artifact",
+        "code_revision"
+      ],
+      "title": "EvidenceBundleManifest",
+      "type": "object"
+    },
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "ObjectiveSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "const": "maximize",
+          "default": "maximize",
+          "title": "Direction",
+          "type": "string"
+        },
+        "metric": {
+          "const": "successful_output_tokens_per_second",
+          "default": "successful_output_tokens_per_second",
+          "title": "Metric",
+          "type": "string"
+        }
+      },
+      "title": "ObjectiveSpec",
+      "type": "object"
+    },
+    "PlanHash": {
+      "description": "RFC 8785 canonical execution-specification digest.",
+      "title": "PlanHash",
+      "type": "string"
+    },
+    "PlanId": {
+      "title": "PlanId",
+      "type": "string"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "VerificationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/CandidateId"
+        },
+        "coefficient_of_variation": {
+          "minimum": 0,
+          "title": "Coefficient Of Variation",
+          "type": "number"
+        },
+        "constraints_satisfied": {
+          "title": "Constraints Satisfied",
+          "type": "boolean"
+        },
+        "mean": {
+          "exclusiveMinimum": 0,
+          "title": "Mean",
+          "type": "number"
+        },
+        "objective": {
+          "$ref": "#/$defs/ObjectiveSpec"
+        },
+        "provenance": {
+          "$ref": "#/$defs/DerivedProvenance"
+        },
+        "repeat_values": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "maxItems": 20,
+          "minItems": 2,
+          "title": "Repeat Values",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "verification-summary/v1",
+          "default": "verification-summary/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "standard_deviation": {
+          "minimum": 0,
+          "title": "Standard Deviation",
+          "type": "number"
+        },
+        "worst_value": {
+          "exclusiveMinimum": 0,
+          "title": "Worst Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "objective",
+        "repeat_values",
+        "mean",
+        "standard_deviation",
+        "coefficient_of_variation",
+        "worst_value",
+        "constraints_satisfied",
+        "provenance"
+      ],
+      "title": "VerificationSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Agent-safe result containing only Artifact references and selection facts.",
+  "properties": {
+    "champion_selection": {
+      "$ref": "#/$defs/ChampionSelection"
+    },
+    "manifest": {
+      "$ref": "#/$defs/EvidenceBundleManifest"
+    },
+    "manifest_artifact": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "schema_version": {
+      "const": "evidence-bundle/v1",
+      "default": "evidence-bundle/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "manifest",
+    "manifest_artifact",
+    "champion_selection"
+  ],
+  "title": "EvidenceBundle",
+  "type": "object"
+}

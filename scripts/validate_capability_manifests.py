@@ -24,7 +24,12 @@ from autopilot.capabilities.deployment.domain.models import (
     DeploymentPreview,
     VllmVersionProfile,
 )
-from autopilot.capabilities.evidence.domain.models import ChampionPolicy
+from autopilot.capabilities.evidence.domain.models import (
+    ChampionPolicy,
+    EvidenceBundle,
+    EvidenceBundleManifest,
+)
+from autopilot.capabilities.optimization.application.verification import VerificationRunState
 from autopilot.capabilities.optimization.domain.models import VllmSearchSpaceSpec
 from autopilot.domain.base import NonEmptyStr, StrictModel
 from autopilot.domain.enums import ExperimentPhase, RiskLevel
@@ -236,7 +241,7 @@ M2_CAPABILITY_SPECS: Final = (
     CapabilitySpec(
         name="optimization",
         provider="optuna",
-        phases=(ExperimentPhase.OPTIMIZATION,),
+        phases=(ExperimentPhase.OPTIMIZATION, ExperimentPhase.VERIFICATION),
         resources=ResourceRequirements(cpu=True, network=False, gpu=False),
         environment_capabilities=(),
         tools=(
@@ -246,8 +251,8 @@ M2_CAPABILITY_SPECS: Final = (
             ExpectedTool("get_optimization_result", RiskLevel.L0),
             ExpectedTool("cancel_optimization", RiskLevel.L2),
         ),
-        schema_models=(VllmSearchSpaceSpec,),
-        modes=("single_objective",),
+        schema_models=(VllmSearchSpaceSpec, VerificationRunState),
+        modes=("single_objective", "top_candidate_verification"),
     ),
     CapabilitySpec(
         name="evidence",
@@ -264,8 +269,14 @@ M2_CAPABILITY_SPECS: Final = (
             ExpectedTool("create_champion_plan", RiskLevel.L0),
             ExpectedTool("get_evidence_result", RiskLevel.L0),
         ),
-        schema_models=(ChampionPolicy, VerificationSummary, ChampionSelection),
-        modes=("champion_selection",),
+        schema_models=(
+            ChampionPolicy,
+            VerificationSummary,
+            ChampionSelection,
+            EvidenceBundleManifest,
+            EvidenceBundle,
+        ),
+        modes=("champion_selection", "evidence_bundle"),
     ),
 )
 

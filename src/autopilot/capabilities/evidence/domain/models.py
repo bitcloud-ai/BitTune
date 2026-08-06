@@ -10,12 +10,8 @@ from autopilot.domain.artifacts import ArtifactRef
 from autopilot.domain.base import NonEmptyStr, StrictModel, UtcDatetime
 from autopilot.domain.candidates import DeploymentCandidate
 from autopilot.domain.enums import TrialStatus
-from autopilot.domain.identifiers import (
-    ExperimentId,
-    Sha256Digest,
-    TrialId,
-)
-from autopilot.domain.trials import TrialRecord
+from autopilot.domain.identifiers import ExperimentId, PlanHash, PlanId, Sha256Digest, TrialId
+from autopilot.domain.trials import ChampionSelection, TrialRecord
 
 INVALID_TRIAL_CANDIDATE = "evidence Trial and Candidate identifiers do not match"
 INVALID_EVIDENCE_LIFECYCLE = "evidence can only be recorded for a terminal Trial"
@@ -113,3 +109,35 @@ class EvidenceRunStatus(StrictModel):
     state: EvidenceProviderState
     started_at: UtcDatetime | None = None
     ended_at: UtcDatetime | None = None
+
+
+class EvidenceBundleManifest(StrictModel):
+    """Complete, replayable Artifact index for one verified optimization result."""
+
+    schema_version: Literal["evidence-bundle-manifest/v1"] = "evidence-bundle-manifest/v1"
+    experiment_id: ExperimentId
+    plan_id: PlanId
+    plan_hash: PlanHash
+    hardware_passport: ArtifactRef
+    model_profile: ArtifactRef
+    model_revision: ArtifactRef
+    engine_image_digest: ArtifactRef
+    requirements: ArtifactRef
+    workload: ArtifactRef
+    slo: ArtifactRef
+    candidate_artifacts: tuple[ArtifactRef, ...] = Field(min_length=1, max_length=480)
+    trial_artifacts: tuple[ArtifactRef, ...] = Field(min_length=1, max_length=2_000)
+    verification_artifacts: tuple[ArtifactRef, ...] = Field(min_length=1, max_length=64)
+    champion_artifact: ArtifactRef
+    report_artifact: ArtifactRef
+    checksums_artifact: ArtifactRef
+    code_revision: CodeRevision
+
+
+class EvidenceBundle(StrictModel):
+    """Agent-safe result containing only Artifact references and selection facts."""
+
+    schema_version: Literal["evidence-bundle/v1"] = "evidence-bundle/v1"
+    manifest: EvidenceBundleManifest
+    manifest_artifact: ArtifactRef
+    champion_selection: ChampionSelection

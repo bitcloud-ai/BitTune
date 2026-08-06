@@ -62,3 +62,13 @@ class OptimizationStopReason(StrEnum):
     NO_IMPROVEMENT = "no_improvement"
     SEARCH_SPACE_EXHAUSTED = "search_space_exhausted"
     CANCELLED = "cancelled"
+
+
+class VerificationRunState(StrEnum):
+    """One-step Top-candidate verification lifecycle."""
+
+    RUNNING = "running"
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"

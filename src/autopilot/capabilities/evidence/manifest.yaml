@@ -49,11 +49,14 @@
   "schema_versions": [
     "champion-policy/v1",
     "verification-summary/v1",
-    "champion-selection/v2"
+    "champion-selection/v2",
+    "evidence-bundle-manifest/v1",
+    "evidence-bundle/v1"
   ],
   "supports": {
     "modes": [
-      "champion_selection"
+      "champion_selection",
+      "evidence_bundle"
     ]
   }
 }

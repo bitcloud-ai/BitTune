@@ -11,11 +11,19 @@ from autopilot.capabilities.optimization.application.controller import (
     OptimizationController,
     OptimizationRunRequest,
 )
+from autopilot.capabilities.optimization.application.verification import (
+    VerificationCandidate,
+    VerificationController,
+    build_verification_summaries,
+)
 from autopilot.capabilities.optimization.domain.enums import (
     OptimizationProviderTrialState,
     OptimizationRunState,
     OptimizationStopReason,
     TrialExecutionStage,
+)
+from autopilot.capabilities.optimization.domain.enums import (
+    VerificationRunState as VerificationLifecycle,
 )
 from autopilot.capabilities.optimization.domain.errors import TrialExecutionPendingError
 from autopilot.capabilities.optimization.domain.models import (
@@ -259,6 +267,28 @@ class PendingExecutor(FakeExecutor):
         )
 
 
+class VerificationFactory:
+    def __init__(self, run_request, factory: FakeRequestFactory) -> None:
+        self.run_request = run_request
+        self.factory = factory
+
+    def build_request(self, *, candidate, trial_id, repeat_index, started_at):
+        del repeat_index
+        suggestion = OptimizationSuggestion(
+            study_id=candidate.source_trial.study_id,
+            trial_number=candidate.source_trial.trial_number,
+            configuration_index=0,
+            parameters=candidate.candidate.parameters,
+        )
+        return self.factory.build_request(
+            plan=self.run_request.plan,
+            suggestion=suggestion,
+            trial_id=trial_id,
+            candidate_id=candidate.candidate.candidate_id,
+            started_at=started_at,
+        )
+
+
 def _artifact() -> ArtifactRef:
     return ArtifactRef(
         artifact_id=ArtifactId(root="artifact_" + "9" * 32),
@@ -466,3 +496,55 @@ def test_controller_stops_before_asking_when_request_budget_is_exhausted() -> No
         study_id=request.plan.execution_specification.definition.study_id,
         plan_hash=request.plan.plan_hash,
     )
+
+
+def test_top_three_candidates_complete_two_verification_repeats_each() -> None:
+    request, controller, _, repository, executor, factory = _setup()
+    for _ in range(3):
+        controller.advance(request)
+    entries = repository.list_for_study(
+        experiment_id=request.plan.experiment_id,
+        study_id=request.plan.execution_specification.definition.study_id,
+        plan_hash=request.plan.plan_hash,
+    )
+    candidates = tuple(
+        VerificationCandidate(
+            candidate=DeploymentCandidate.model_validate(
+                {
+                    **request.plan.execution_specification.base_candidate.model_dump(mode="python"),
+                    "candidate_id": entry.trial.candidate_id,
+                    "parameters": entry.trial.parameters,
+                }
+            ),
+            source_trial=entry.trial,
+        )
+        for entry in entries
+    )
+    verification = VerificationController(
+        trial_executor=executor,
+        request_factory=VerificationFactory(request, factory),
+    )
+    state = verification.start(
+        experiment_id=request.plan.experiment_id,
+        plan_id=request.plan.plan_id,
+        plan_hash=request.plan.plan_hash,
+        candidates=candidates,
+        policy=request.plan.execution_specification.champion_policy,
+    )
+
+    for _ in range(6):
+        state = verification.advance(
+            state,
+            candidates=candidates,
+            started_at=request.started_at,
+        ).state
+    summaries = build_verification_summaries(
+        state,
+        candidates,
+        calculation_artifact=_artifact(),
+    )
+
+    assert state.state is VerificationLifecycle.SUCCEEDED
+    assert len(state.repeats) == 6
+    assert len(summaries) == 3
+    assert all(len(summary.repeat_values) == 2 for summary in summaries)

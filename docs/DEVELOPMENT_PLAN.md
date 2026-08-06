@@ -198,5 +198,9 @@ uv run pytest tests/unit tests/contract
   Provider 版本尚未通过 G0，因此这些高成本入口继续 fail-closed；固定 Candidate 的
   Environment → Capacity → Deploy → Benchmark → Evidence worker 闭环已通过 Fake 端到端测试，
   包含 approved Plan 绑定、静态拒绝、部署/Benchmark/OOM/约束失败分类、取消、异步 pending、
-  MLflow 自动记录及 Benchmark/Deployment 清理；M6 的 REST 入口、G0 真机验收及 M7～M9
-  尚未完成。
+  MLflow 自动记录及 Benchmark/Deployment 清理；M6 的 REST 入口和 G0 真机验收仍待目标环境。
+- M7 已完成非 GPU 实现：Optuna 4.9.0 Study/Trial 持久化与恢复、预算/收敛、固定 Trial
+  Controller、失败分类、Top 3 候选各 2 次复测、Verification Summary、确定性
+  Champion/Fallback 选择及 Evidence Bundle manifest/artifact 已落地；Fake 单元路径和
+  Optuna Contract Test 已通过。复测状态使用 Job progress 结构化快照，真实 PostgreSQL、
+  MLflow 线上和 GPU 验收仍待对应环境；M8/M9 尚未开始。
