@@ -210,4 +210,8 @@ uv run pytest tests/unit tests/contract
   Deployment 投影、Artifact 查询、Bearer Token 配置装配、fail-closed Provider/外部状态
   默认值，以及 43 个由代码生成的公共 JSON Schema。Graph/API Fake 测试已通过；真实
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
-- M9 尚未开始。
+- M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
+  根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
+  配置模板、迁移入口、备份恢复文档、Compose 安全契约测试，以及代码生成的 OpenAPI。
+  M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境；
+  未创建虚假的 Worker 进程，真实 Provider Profile 固定后再接入 PostgreSQL Lease Queue。

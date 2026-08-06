@@ -20,6 +20,7 @@ def _settings(tmp_path: Path) -> ApiSettings:
         operator_token_hash=BearerTokenHash(root="sha256:" + "a" * 64),
         admin_user_id=UserId(root="user_" + "2" * 32),
         admin_token_hash=BearerTokenHash(root="sha256:" + "b" * 64),
+        _secrets_dir=tmp_path,
     )
 
 
@@ -44,6 +45,7 @@ def test_settings_rejects_partial_remote_provider_configuration(tmp_path: Path) 
             admin_user_id=UserId(root="user_" + "2" * 32),
             admin_token_hash=BearerTokenHash(root="sha256:" + "b" * 64),
             model_provider_base_url="https://model.example.test/v1",
+            _secrets_dir=tmp_path,
         )
 
 

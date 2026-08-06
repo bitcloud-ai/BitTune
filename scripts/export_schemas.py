@@ -7,9 +7,11 @@ import json
 import sys
 from pathlib import Path
 
+from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 
 from autopilot.api.app import (
+    ApiDependencies,
     ArtifactDownloadMeta,
     CreateExperimentRequest,
     ExperimentMessageRequest,
@@ -18,8 +20,9 @@ from autopilot.api.app import (
     JobView,
     PlanDecisionRequest,
     ResumeRequest,
+    create_app,
 )
-from autopilot.api.repositories import DeploymentProjection, PlanProjection
+from autopilot.api.repositories import DeploymentProjection, InMemoryExperimentStore, PlanProjection
 from autopilot.capabilities.benchmark.domain.models import (
     BenchmarkExecutionSpecification,
     BenchmarkResult,
@@ -46,13 +49,16 @@ from autopilot.domain.plans import PlanExecutionRequest
 from autopilot.domain.requirements import RequirementSpec
 from autopilot.domain.trials import ChampionSelection, TrialRecord, VerificationSummary
 from autopilot.domain.workloads import WorkloadSpec
+from autopilot.gateway.authentication import BearerTokenAuthenticator
 from autopilot.gateway.models import (
     JobAuthorizationRecord,
     ToolDefinition,
     ToolSetSnapshot,
 )
 from autopilot.graph.model_provider import BenchmarkIntent, FailureAnalysis, ReportDraft
+from autopilot.graph.runtime_defaults import UnavailableModelProvider, UnavailableReconciler
 from autopilot.graph.state import GraphStateSnapshot
+from autopilot.graph.workflow import GraphDependencies, UnavailableGraphOperations, build_runtime
 from autopilot.policy.models import PolicyDecision, PolicyInput
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
@@ -108,6 +114,24 @@ def schema_text(model: type[BaseModel]) -> str:
     return f"{json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True)}\n"
 
 
+def openapi_text() -> str:
+    """Render the FastAPI contract without opening a database or provider connection."""
+    dependencies = ApiDependencies(
+        authenticator=BearerTokenAuthenticator(()),
+        experiments=InMemoryExperimentStore(),
+        graph=build_runtime(
+            GraphDependencies(
+                model_provider=UnavailableModelProvider(),
+                operations=UnavailableGraphOperations(),
+                reconciler=UnavailableReconciler(),
+            ),
+            checkpointer=InMemorySaver(),
+        ),
+    )
+    document = create_app(dependencies).openapi()
+    return f"{json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True)}\n"
+
+
 def export_schemas(output_directory: Path) -> None:
     """Write every registered schema to its deterministic file."""
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -115,12 +139,13 @@ def export_schemas(output_directory: Path) -> None:
         (output_directory / f"{name}.json").write_text(
             schema_text(model), encoding="utf-8", newline="\n"
         )
+    (output_directory / "openapi.json").write_text(openapi_text(), encoding="utf-8", newline="\n")
 
 
 def verify_schemas(output_directory: Path) -> list[str]:
     """Return missing, stale, and unexpected generated schema files."""
     errors: list[str] = []
-    expected_names = {f"{name}.json" for name in SCHEMA_MODELS}
+    expected_names = {f"{name}.json" for name in SCHEMA_MODELS} | {"openapi.json"}
     actual_names = {path.name for path in output_directory.glob("*.json")}
     errors.extend(
         f"missing generated schema: {missing}" for missing in sorted(expected_names - actual_names)
@@ -133,6 +158,9 @@ def verify_schemas(output_directory: Path) -> list[str]:
         path = output_directory / f"{name}.json"
         if path.is_file() and path.read_text(encoding="utf-8") != schema_text(model):
             errors.append(f"stale generated schema: {path.name}")
+    openapi_path = output_directory / "openapi.json"
+    if openapi_path.is_file() and openapi_path.read_text(encoding="utf-8") != openapi_text():
+        errors.append("stale generated schema: openapi.json")
     return errors
 
 

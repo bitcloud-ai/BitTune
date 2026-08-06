@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Self
@@ -45,6 +45,7 @@ class ApiSettings(BaseSettings):
         env_prefix="AUTOPILOT_API_",
         extra="forbid",
         frozen=True,
+        secrets_dir="/run/secrets",
     )
 
     database_url: str = Field(min_length=1)
@@ -57,6 +58,21 @@ class ApiSettings(BaseSettings):
     model_provider_base_url: AnyHttpUrl | None = None
     model_provider_api_key: SecretStr | None = None
     model_provider_model: NonEmptyStr | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_empty_provider_fields(cls, value: object) -> object:
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        for name in (
+            "model_provider_base_url",
+            "model_provider_api_key",
+            "model_provider_model",
+        ):
+            if payload.get(name) == "":
+                payload[name] = None
+        return payload
 
     @model_validator(mode="after")
     def validate_provider_and_subjects(self) -> Self:

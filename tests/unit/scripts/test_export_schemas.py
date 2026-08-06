@@ -35,7 +35,7 @@ def test_exported_schemas_round_trip_through_verifier(tmp_path: Path) -> None:
     export_schemas(tmp_path)
 
     assert verify_schemas(tmp_path) == []
-    assert len(tuple(tmp_path.glob("*.json"))) == len(SCHEMA_MODELS)
+    assert len(tuple(tmp_path.glob("*.json"))) == len(SCHEMA_MODELS) + 1
 
 
 def test_verifier_reports_stale_schema(tmp_path: Path) -> None:

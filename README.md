@@ -31,3 +31,12 @@ uv run python scripts/export_schemas.py
 ```
 
 GPU 测试不在默认检查中。只能在获得明确批准、GPU 0 空闲且预算已配置后执行 `tests/gpu`。
+
+## 控制面部署
+
+MVP 的交付入口是单机 Linux 上的 Docker Compose 控制面和独立的 systemd Host Runner，
+对外提供 FastAPI REST、SSE 和 OpenAPI，不包含 Web UI。部署步骤、不可变镜像 Digest、
+Secret 文件、数据库迁移以及备份恢复见 [deploy/README.md](deploy/README.md)。
+
+当前未通过 G0 固定真实 Provider Profile 时，控制面会安全启动但对环境检测、部署、压测、
+调优和证据归档保持 fail-closed；不能把 Fake Adapter 的结果当作 RTX 5090 性能结果。

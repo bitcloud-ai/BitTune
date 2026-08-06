@@ -1,0 +1,128 @@
+name: bittune-autopilot
+
+services:
+  postgres:
+    image: ${AUTOPILOT_POSTGRES_IMAGE:?set an immutable PostgreSQL image digest}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AUTOPILOT_POSTGRES_DB:?set PostgreSQL database name}
+      POSTGRES_USER: ${AUTOPILOT_POSTGRES_USER:?set PostgreSQL user}
+      POSTGRES_PASSWORD: ${AUTOPILOT_POSTGRES_PASSWORD:?set PostgreSQL password through deployment secret management}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+
+  opa:
+    image: ${AUTOPILOT_OPA_IMAGE:?set an immutable OPA image digest}
+    restart: unless-stopped
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies"]
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - ../policies:/policies:ro
+    expose:
+      - "8181"
+    pids_limit: 128
+
+  mlflow:
+    image: ${AUTOPILOT_MLFLOW_IMAGE:?set an immutable MLflow image digest}
+    restart: unless-stopped
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - postgresql+psycopg://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/${AUTOPILOT_POSTGRES_DB}
+      - --default-artifact-root
+      - /mlartifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - mlflow-artifacts:/mlartifacts
+    expose:
+      - "5000"
+    pids_limit: 256
+
+  migrate:
+    image: ${AUTOPILOT_API_IMAGE:?set an immutable Autopilot API image digest}
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTOPILOT_DATABASE_URL: postgresql+psycopg://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/${AUTOPILOT_POSTGRES_DB}
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    pids_limit: 128
+
+  autopilot-api:
+    image: ${AUTOPILOT_API_IMAGE:?set an immutable Autopilot API image digest}
+    restart: unless-stopped
+    command: ["uvicorn", "autopilot.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opa:
+        condition: service_started
+      mlflow:
+        condition: service_started
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      AUTOPILOT_API_DATABASE_URL: postgresql+psycopg://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/${AUTOPILOT_POSTGRES_DB}
+      AUTOPILOT_API_CHECKPOINT_DATABASE_URL: postgresql://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/${AUTOPILOT_POSTGRES_DB}
+      AUTOPILOT_API_ARTIFACT_ROOT: /artifacts
+      AUTOPILOT_API_OPERATOR_USER_ID: ${AUTOPILOT_API_OPERATOR_USER_ID:?set operator UserId}
+      AUTOPILOT_API_OPERATOR_TOKEN_HASH: ${AUTOPILOT_API_OPERATOR_TOKEN_HASH:?set operator token hash}
+      AUTOPILOT_API_ADMIN_USER_ID: ${AUTOPILOT_API_ADMIN_USER_ID:?set admin UserId}
+      AUTOPILOT_API_ADMIN_TOKEN_HASH: ${AUTOPILOT_API_ADMIN_TOKEN_HASH:?set admin token hash}
+      AUTOPILOT_API_MODEL_PROVIDER_BASE_URL: ${AUTOPILOT_API_MODEL_PROVIDER_BASE_URL-}
+      AUTOPILOT_API_MODEL_PROVIDER_MODEL: ${AUTOPILOT_API_MODEL_PROVIDER_MODEL-}
+    secrets:
+      - model_provider_api_key
+    volumes:
+      - artifacts:/artifacts
+    ports:
+      - "127.0.0.1:8000:8000"
+    pids_limit: 256
+
+volumes:
+  postgres-data:
+  artifacts:
+  mlflow-artifacts:
+
+secrets:
+  model_provider_api_key:
+    file: ${AUTOPILOT_MODEL_PROVIDER_API_KEY_FILE:?set a root-owned model provider API key file}
