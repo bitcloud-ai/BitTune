@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "A report draft is kept outside Graph State and published as an Artifact.",
+  "properties": {
+    "markdown": {
+      "maxLength": 64000,
+      "minLength": 1,
+      "title": "Markdown",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "report-draft/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "markdown"
+  ],
+  "title": "ReportDraft",
+  "type": "object"
+}

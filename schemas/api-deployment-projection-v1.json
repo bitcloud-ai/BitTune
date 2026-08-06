@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "DeploymentId": {
+      "title": "DeploymentId",
+      "type": "string"
+    },
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_id": {
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "container_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Container Id"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "deployment_id": {
+      "$ref": "#/$defs/DeploymentId"
+    },
+    "endpoint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint"
+    },
+    "experiment_id": {
+      "$ref": "#/$defs/ExperimentId"
+    },
+    "gpu_id": {
+      "title": "Gpu Id",
+      "type": "integer"
+    },
+    "image_digest": {
+      "title": "Image Digest",
+      "type": "string"
+    },
+    "logs_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Logs Artifact Id"
+    },
+    "model_revision": {
+      "title": "Model Revision",
+      "type": "string"
+    },
+    "parameter_hash": {
+      "title": "Parameter Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "deployment-projection/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "deployment_id",
+    "experiment_id",
+    "candidate_id",
+    "status",
+    "parameter_hash",
+    "image_digest",
+    "model_revision",
+    "gpu_id",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "DeploymentProjection",
+  "type": "object"
+}

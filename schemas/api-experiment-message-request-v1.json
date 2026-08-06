@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "message": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "experiment-message-request/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "title": "ExperimentMessageRequest",
+  "type": "object"
+}

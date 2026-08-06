@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "Provider explanation of a typed failure, never the source of truth.",
+  "properties": {
+    "actions": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Actions",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "failure-analysis/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "summary",
+    "actions"
+  ],
+  "title": "FailureAnalysis",
+  "type": "object"
+}

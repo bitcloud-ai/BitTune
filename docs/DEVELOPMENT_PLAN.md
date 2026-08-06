@@ -203,4 +203,11 @@ uv run pytest tests/unit tests/contract
   Controller、失败分类、Top 3 候选各 2 次复测、Verification Summary、确定性
   Champion/Fallback 选择及 Evidence Bundle manifest/artifact 已落地；Fake 单元路径和
   Optuna Contract Test 已通过。复测状态使用 Job progress 结构化快照，真实 PostgreSQL、
-  MLflow 线上和 GPU 验收仍待对应环境；M8/M9 尚未开始。
+  MLflow 线上和 GPU 验收仍待对应环境。
+- M8 已完成非 GPU 实现：单主 LangGraph、结构化 State、官方 InMemorySaver 测试恢复、
+  官方 PostgresSaver 生产生命周期、两处 Plan Hash 绑定的 Interrupt、远程
+  OpenAI-compatible ModelProvider、FastAPI REST/SSE/OpenAPI 路由、PostgreSQL 实验与
+  Deployment 投影、Artifact 查询、Bearer Token 配置装配、fail-closed Provider/外部状态
+  默认值，以及 43 个由代码生成的公共 JSON Schema。Graph/API Fake 测试已通过；真实
+  PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
+- M9 尚未开始。

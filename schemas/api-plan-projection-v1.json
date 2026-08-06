@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "PlanHash": {
+      "description": "RFC 8785 canonical execution-specification digest.",
+      "title": "PlanHash",
+      "type": "string"
+    },
+    "PlanId": {
+      "title": "PlanId",
+      "type": "string"
+    },
+    "PlanKind": {
+      "enum": [
+        "environment",
+        "capacity",
+        "deployment",
+        "benchmark",
+        "optimization",
+        "verification",
+        "champion",
+        "evidence"
+      ],
+      "title": "PlanKind",
+      "type": "string"
+    },
+    "PlanStatus": {
+      "enum": [
+        "draft",
+        "approved",
+        "rejected",
+        "executed"
+      ],
+      "title": "PlanStatus",
+      "type": "string"
+    },
+    "RiskLevel": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "UserId": {
+      "title": "UserId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approved_by": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UserId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "body": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Body",
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "experiment_id": {
+      "$ref": "#/$defs/ExperimentId"
+    },
+    "kind": {
+      "$ref": "#/$defs/PlanKind"
+    },
+    "plan_hash": {
+      "$ref": "#/$defs/PlanHash"
+    },
+    "plan_id": {
+      "$ref": "#/$defs/PlanId"
+    },
+    "risk_level": {
+      "$ref": "#/$defs/RiskLevel"
+    },
+    "schema_version": {
+      "default": "plan-projection/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "schema_version_body": {
+      "title": "Schema Version Body",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/PlanStatus"
+    }
+  },
+  "required": [
+    "plan_id",
+    "experiment_id",
+    "kind",
+    "schema_version_body",
+    "body",
+    "plan_hash",
+    "risk_level",
+    "status",
+    "created_at"
+  ],
+  "title": "PlanProjection",
+  "type": "object"
+}

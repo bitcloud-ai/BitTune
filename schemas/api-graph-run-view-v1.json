@@ -1,0 +1,427 @@
+{
+  "$defs": {
+    "ExperimentId": {
+      "title": "ExperimentId",
+      "type": "string"
+    },
+    "ExperimentPhase": {
+      "enum": [
+        "requirements",
+        "environment",
+        "planning",
+        "approval",
+        "deployment",
+        "benchmark",
+        "optimization",
+        "verification",
+        "report",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ExperimentPhase",
+      "type": "string"
+    },
+    "ExperimentStatus": {
+      "enum": [
+        "active",
+        "waiting_input",
+        "waiting_approval",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ExperimentStatus",
+      "type": "string"
+    },
+    "ExperimentView": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "experiment_id": {
+          "$ref": "#/$defs/ExperimentId"
+        },
+        "phase": {
+          "$ref": "#/$defs/ExperimentPhase"
+        },
+        "schema_version": {
+          "default": "experiment-view/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/GraphStateSnapshot"
+        },
+        "status": {
+          "$ref": "#/$defs/ExperimentStatus"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "status",
+        "phase",
+        "state",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "ExperimentView",
+      "type": "object"
+    },
+    "GraphStateSnapshot": {
+      "additionalProperties": false,
+      "description": "Validated projection used at API and checkpoint boundaries.",
+      "properties": {
+        "active_candidate_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Candidate Id"
+        },
+        "active_deployment_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Deployment Id"
+        },
+        "active_job_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Job Id"
+        },
+        "active_study_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Study Id"
+        },
+        "approval_decision": {
+          "anyOf": [
+            {
+              "enum": [
+                "approved",
+                "rejected"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Decision"
+        },
+        "approval_request": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Request"
+        },
+        "artifact_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "baseline_completed": {
+          "default": false,
+          "title": "Baseline Completed",
+          "type": "boolean"
+        },
+        "benchmark_summary_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Benchmark Summary Refs",
+          "type": "array"
+        },
+        "candidate_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Candidate Refs",
+          "type": "array"
+        },
+        "champion_ref": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Champion Ref"
+        },
+        "experiment_id": {
+          "$ref": "#/$defs/ExperimentId"
+        },
+        "hardware_passport_ref": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hardware Passport Ref"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "model_profile_ref": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Profile Ref"
+        },
+        "phase": {
+          "$ref": "#/$defs/ExperimentPhase"
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requirements"
+        },
+        "retry_count": {
+          "default": 0,
+          "title": "Retry Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "autopilot-state/v1",
+          "default": "autopilot-state/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "slo_spec_ref": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slo Spec Ref"
+        },
+        "status": {
+          "$ref": "#/$defs/ExperimentStatus"
+        },
+        "test_strategy": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Test Strategy"
+        },
+        "thread_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Thread Id",
+          "type": "string"
+        },
+        "trial_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Trial Refs",
+          "type": "array"
+        },
+        "user_message": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Message"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "workload_spec_ref": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workload Spec Ref"
+        }
+      },
+      "required": [
+        "thread_id",
+        "experiment_id",
+        "status",
+        "phase"
+      ],
+      "title": "GraphStateSnapshot",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "experiment": {
+      "$ref": "#/$defs/ExperimentView"
+    },
+    "interrupt": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Interrupt"
+    },
+    "interrupted": {
+      "title": "Interrupted",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "default": "graph-run-view/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "experiment",
+    "interrupted"
+  ],
+  "title": "GraphRunView",
+  "type": "object"
+}

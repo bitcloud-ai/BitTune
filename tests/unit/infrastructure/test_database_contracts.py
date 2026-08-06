@@ -9,6 +9,7 @@ from autopilot.infrastructure.database.models import (
     ApprovalRow,
     ArtifactRow,
     AuditEventRow,
+    DeploymentRow,
     EventRow,
     IdempotencyRow,
     JobAuthorizationRow,
@@ -21,7 +22,7 @@ from autopilot.infrastructure.database.repositories import claimable_job_stateme
 from autopilot.infrastructure.database.session import create_postgres_engine
 
 
-def test_metadata_contains_required_m3_tables_without_artifact_blob() -> None:
+def test_metadata_contains_required_tables_without_artifact_blob() -> None:
     assert set(Base.metadata.tables) == {
         "app.experiments",
         "app.plans",
@@ -34,10 +35,12 @@ def test_metadata_contains_required_m3_tables_without_artifact_blob() -> None:
         "app.events",
         "app.audit_events",
         "app.optimization_trials",
+        "app.deployments",
     }
     assert "content" not in ArtifactRow.__table__.columns
     assert "storage_path" in ArtifactRow.__table__.columns
     assert "schema_version" in ArtifactRow.__table__.columns
+    assert "schema_version" in DeploymentRow.__table__.columns
 
 
 def test_job_ddl_uses_postgresql_jsonb_timezone_and_database_constraints() -> None:

@@ -9,6 +9,17 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from autopilot.api.app import (
+    ArtifactDownloadMeta,
+    CreateExperimentRequest,
+    ExperimentMessageRequest,
+    ExperimentView,
+    GraphRunView,
+    JobView,
+    PlanDecisionRequest,
+    ResumeRequest,
+)
+from autopilot.api.repositories import DeploymentProjection, PlanProjection
 from autopilot.capabilities.benchmark.domain.models import (
     BenchmarkExecutionSpecification,
     BenchmarkResult,
@@ -40,14 +51,27 @@ from autopilot.gateway.models import (
     ToolDefinition,
     ToolSetSnapshot,
 )
+from autopilot.graph.model_provider import BenchmarkIntent, FailureAnalysis, ReportDraft
+from autopilot.graph.state import GraphStateSnapshot
 from autopilot.policy.models import PolicyDecision, PolicyInput
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
+    "api-artifact-download-meta-v1": ArtifactDownloadMeta,
+    "api-create-experiment-request-v1": CreateExperimentRequest,
+    "api-deployment-projection-v1": DeploymentProjection,
+    "api-experiment-message-request-v1": ExperimentMessageRequest,
+    "api-experiment-view-v1": ExperimentView,
+    "api-graph-run-view-v1": GraphRunView,
+    "api-job-view-v1": JobView,
+    "api-plan-decision-request-v1": PlanDecisionRequest,
+    "api-plan-projection-v1": PlanProjection,
+    "api-resume-request-v1": ResumeRequest,
     "approval-v2": ApprovalRecord,
     "artifact-ref-v1": ArtifactRef,
     "bearer-token-binding-v1": BearerTokenBinding,
     "benchmark-execution-specification-v1": BenchmarkExecutionSpecification,
     "benchmark-result-v1": BenchmarkResult,
+    "benchmark-intent-v1": BenchmarkIntent,
     "champion-policy-v1": ChampionPolicy,
     "champion-selection-v2": ChampionSelection,
     "deployment-candidate-v1": DeploymentCandidate,
@@ -56,6 +80,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "evidence-bundle-manifest-v1": EvidenceBundleManifest,
     "evidence-bundle-v1": EvidenceBundle,
     "execution-budget-v1": ExecutionBudget,
+    "failure-analysis-v1": FailureAnalysis,
+    "graph-state-v1": GraphStateSnapshot,
     "hardware-passport-v1": HardwarePassport,
     "job-v1": JobRecord,
     "job-authorization-v1": JobAuthorizationRecord,
@@ -64,6 +90,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "plan-execution-request-v1": PlanExecutionRequest,
     "policy-decision-v1": PolicyDecision,
     "policy-input-v1": PolicyInput,
+    "report-draft-v1": ReportDraft,
     "requirements-v1": RequirementSpec,
     "slo-v1": SloSpec,
     "tool-definition-v1": ToolDefinition,

@@ -14,6 +14,7 @@ dependencies = [
     "httpx==0.28.1",
     "langgraph==1.2.10",
     "langgraph-checkpoint-postgres==3.1.1",
+    "openai==2.53.0",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.2",
     "psycopg[binary]==3.3.4",
@@ -82,6 +83,8 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "PLR2004", "S101"]
+"src/autopilot/api/app.py" = ["ARG001", "PLR0915", "TRY003"]
+"src/autopilot/graph/workflow.py" = ["ARG002", "PLR0911", "PLR0915", "TRY003", "TRY301"]
 
 [tool.ruff.format]
 quote-style = "double"

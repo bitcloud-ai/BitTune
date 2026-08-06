@@ -40,6 +40,11 @@ class ExperimentRow(Base):
     workload_spec_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
     slo_spec_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
     champion_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
+    graph_state_json: Mapped[dict[str, JsonValue]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -255,6 +260,44 @@ class ArtifactRow(Base):
         CheckConstraint("size_bytes >= 0", name="artifact_non_negative_size"),
         UniqueConstraint("experiment_id", "id", name="uq_artifacts_experiment_id"),
         Index("ix_artifacts_experiment_category", "experiment_id", "category"),
+    )
+
+
+class DeploymentRow(Base):
+    """Read model for the deployment API; lifecycle is owned by the Runner adapter."""
+
+    __tablename__ = "deployments"
+
+    id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    experiment_id: Mapped[str] = mapped_column(
+        ForeignKey(f"{APP_SCHEMA}.experiments.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    candidate_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    container_id: Mapped[str | None] = mapped_column(String(256))
+    endpoint: Mapped[str | None] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    parameter_hash: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    image_digest: Mapped[str] = mapped_column(String(256), nullable=False)
+    model_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    gpu_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    logs_artifact_id: Mapped[str | None] = mapped_column(String(ID_LENGTH))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version = 'deployment-record/v1'",
+            name="deployment_schema_version",
+        ),
+        CheckConstraint("gpu_id = 0", name="deployment_single_gpu_zero"),
+        CheckConstraint(
+            "status IN ('starting','healthy','stopping','stopped','failed')",
+            name="deployment_status",
+        ),
+        UniqueConstraint("experiment_id", "id", name="uq_deployments_experiment_id"),
+        Index("ix_deployments_experiment_updated", "experiment_id", "updated_at"),
     )
 
 
