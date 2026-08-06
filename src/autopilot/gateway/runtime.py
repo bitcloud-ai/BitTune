@@ -5,25 +5,49 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import NoReturn
+from typing import ClassVar
 
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
+from autopilot.capabilities.benchmark.domain.models import BenchmarkExecutionSpecification
+from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
+from autopilot.capabilities.environment.domain.models import (
+    EnvironmentExecutionSpecification,
+    EnvironmentInspectionSpecification,
+)
+from autopilot.capabilities.optimization.domain.models import OptimizationExecutionSpecification
 from autopilot.domain.budgets import ExecutionBudget
-from autopilot.domain.enums import ExperimentPhase, ExperimentStatus
+from autopilot.domain.enums import (
+    ExperimentPhase,
+    ExperimentStatus,
+    JobKind,
+    JobStatus,
+    PlanKind,
+    PlanStatus,
+    RiskLevel,
+)
 from autopilot.domain.hashing import compute_content_hash
 from autopilot.domain.identifiers import (
     ApprovalId,
     ExperimentId,
+    JobId,
     PlanHash,
     PlanId,
     ToolName,
     ToolSetId,
 )
+from autopilot.domain.jobs import JobRecord
+from autopilot.domain.plans import (
+    ExecutionSpecification,
+    PlanEnvelope,
+    compute_plan_envelope_hash,
+)
 from autopilot.domain.requirements import RequirementSpec
 from autopilot.gateway.approval_ports import ApprovalRepository
-from autopilot.gateway.errors import ResourceUnavailableError, WorkflowStateError
+from autopilot.gateway.errors import ToolDispatchError, WorkflowStateError
 from autopilot.gateway.models import (
+    AuthorizedJobControl,
     AuthorizedReadOnlyCall,
     JobAuthorizationDraft,
     JobIdempotencyClaim,
@@ -31,8 +55,13 @@ from autopilot.gateway.models import (
     ToolSetSnapshot,
 )
 from autopilot.gateway.mvp_tools import (
+    DomainJobWriter,
+    DomainPlanResult,
+    DomainPlanWriter,
     ExperimentPlanResult,
     ExperimentPlanWriter,
+    JobCancelRequest,
+    JobSubmissionResult,
     MvpToolDispatcher,
     ProviderStatus,
     mvp_tool_registrations,
@@ -57,10 +86,11 @@ from autopilot.infrastructure.database.gateway_repositories import (
     SqlAlchemyPlanAuthorizationRepository,
     SqlAlchemyToolSetSnapshotRepository,
 )
-from autopilot.infrastructure.database.models import ExperimentRow
+from autopilot.infrastructure.database.models import ExperimentRow, PlanRow
 from autopilot.infrastructure.database.repositories import (
     SqlAlchemyApprovalRepository,
     SqlAlchemyAuditRepository,
+    SqlAlchemyJobRepository,
 )
 from autopilot.jobs.models import AuditEvent
 from autopilot.policy.models import PolicyApproval
@@ -68,7 +98,10 @@ from autopilot.policy.ports import PolicyClient
 
 EXPERIMENT_NOT_FOUND = "Experiment does not exist"
 EXPERIMENT_PHASE_INVALID = "Experiment phase is invalid"
-RESOURCE_RESERVATION_NOT_CONFIGURED = "resource reservation service is not configured"
+PLAN_SPECIFICATION_INVALID = "Plan specification does not match its domain kind"
+EXPERIMENT_REQUIREMENTS_MISSING = "Experiment requirements are not available"
+JOB_ACTION_NOT_SUPPORTED = "Job action is not supported by the MVP dispatcher"
+JOB_REPLAY_MISMATCH = "persisted Job does not match the authorized request"
 
 
 class _SessionWorkflow(WorkflowStateReader):
@@ -195,9 +228,9 @@ class _SessionExperimentPlans(ExperimentPlanWriter):
                 with_for_update=True,
             )
             if row is None:
-                raise WorkflowStateError(EXPERIMENT_NOT_FOUND)
+                raise ToolDispatchError(EXPERIMENT_NOT_FOUND)
             if row.phase != ExperimentPhase.REQUIREMENTS.value:
-                raise WorkflowStateError(EXPERIMENT_PHASE_INVALID)
+                raise ToolDispatchError(EXPERIMENT_PHASE_INVALID)
             serialized_requirements = requirements.model_dump(mode="json")
             state = dict(row.graph_state_json)
             state["requirements"] = serialized_requirements
@@ -215,12 +248,196 @@ class _SessionExperimentPlans(ExperimentPlanWriter):
         )
 
 
-class _UnavailableResources(ResourceReservationPort):
-    """Keep high-cost actions denied until the real resource coordinator is injected."""
+class _SessionDomainPlans(DomainPlanWriter):
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self._sessions = sessions
 
-    def reserve(self, authorization: JobAuthorizationDraft) -> NoReturn:
+    @staticmethod
+    def _matches_kind(kind: PlanKind, specification: ExecutionSpecification) -> bool:
+        expected_types: dict[PlanKind, type[ExecutionSpecification]] = {
+            PlanKind.ENVIRONMENT: EnvironmentExecutionSpecification,
+            PlanKind.DEPLOYMENT: DeploymentExecutionSpecification,
+            PlanKind.BENCHMARK: BenchmarkExecutionSpecification,
+            PlanKind.OPTIMIZATION: OptimizationExecutionSpecification,
+        }
+        expected = expected_types.get(kind)
+        return expected is not None and isinstance(specification, expected)
+
+    @staticmethod
+    def _execution_specification(
+        row: ExperimentRow,
+        specification: BaseModel,
+    ) -> ExecutionSpecification:
+        if isinstance(specification, EnvironmentInspectionSpecification):
+            if row.requirements_json is None:
+                raise ToolDispatchError(EXPERIMENT_REQUIREMENTS_MISSING)
+            requirements = RequirementSpec.model_validate(row.requirements_json)
+            return EnvironmentExecutionSpecification(
+                provider_version=specification.provider_version,
+                adapter_version=specification.adapter_version,
+                provider_profile_version=specification.provider_profile_version,
+                budget=requirements.budget,
+                inspection=specification,
+            )
+        if isinstance(specification, ExecutionSpecification):
+            return specification
+        raise ToolDispatchError(PLAN_SPECIFICATION_INVALID)
+
+    def create(
+        self,
+        *,
+        kind: PlanKind,
+        risk_level: RiskLevel,
+        specification: BaseModel,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> DomainPlanResult:
+        with self._sessions.begin() as session:
+            row = session.get(
+                ExperimentRow,
+                str(authorization.experiment_id),
+                with_for_update=True,
+            )
+            if row is None:
+                raise ToolDispatchError(EXPERIMENT_NOT_FOUND)
+            execution = self._execution_specification(row, specification)
+            if not self._matches_kind(kind, execution):
+                raise ToolDispatchError(PLAN_SPECIFICATION_INVALID)
+            plan_id = PlanId.new()
+            status = PlanStatus.DRAFT if risk_level is RiskLevel.L2 else PlanStatus.APPROVED
+            plan_hash = compute_plan_envelope_hash(
+                plan_id=plan_id,
+                experiment_id=authorization.experiment_id,
+                kind=kind,
+                risk_level=risk_level,
+                execution_specification=execution,
+            )
+            envelope = PlanEnvelope[ExecutionSpecification](
+                plan_id=plan_id,
+                experiment_id=authorization.experiment_id,
+                kind=kind,
+                status=status,
+                risk_level=risk_level,
+                execution_specification=execution,
+                plan_hash=plan_hash,
+                created_at=authorization.authorized_at,
+            )
+            session.add(
+                PlanRow(
+                    id=str(plan_id),
+                    experiment_id=str(authorization.experiment_id),
+                    kind=kind.value,
+                    schema_version=envelope.schema_version,
+                    body_json=envelope.model_dump(mode="json"),
+                    plan_hash=str(plan_hash),
+                    risk_level=risk_level.value,
+                    status=status.value,
+                    approved_by=None,
+                    created_at=authorization.authorized_at,
+                )
+            )
+            session.flush()
+        return DomainPlanResult(
+            experiment_id=authorization.experiment_id,
+            plan_id=plan_id,
+            kind=kind,
+            status=status,
+            risk_level=risk_level,
+            plan_hash=plan_hash,
+            execution_schema_version=execution.schema_version,
+            requires_approval=risk_level is RiskLevel.L2,
+        )
+
+
+class _SessionJobs(DomainJobWriter):
+    _KINDS: ClassVar[dict[str, JobKind]] = {
+        "start_environment_inspection": JobKind.ENVIRONMENT,
+        "cancel_environment_inspection": JobKind.ENVIRONMENT,
+        "start_deployment": JobKind.DEPLOYMENT,
+        "cancel_deployment": JobKind.DEPLOYMENT,
+        "start_benchmark": JobKind.BENCHMARK,
+        "cancel_benchmark": JobKind.BENCHMARK,
+        "start_optimization": JobKind.OPTIMIZATION,
+        "cancel_optimization": JobKind.OPTIMIZATION,
+    }
+
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self._sessions = sessions
+
+    @classmethod
+    def _kind(cls, registration: ToolRegistration) -> JobKind:
+        kind = cls._KINDS.get(str(registration.definition.name))
+        if kind is None:
+            raise ToolDispatchError(JOB_ACTION_NOT_SUPPORTED)
+        return kind
+
+    @staticmethod
+    def _result(job: JobRecord, *, created: bool) -> JobSubmissionResult:
+        return JobSubmissionResult(
+            experiment_id=job.experiment_id,
+            job_id=job.job_id,
+            plan_id=job.plan_id,
+            status=job.status,
+            created=created,
+        )
+
+    def enqueue(
+        self,
+        registration: ToolRegistration,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult:
+        job = JobRecord(
+            job_id=JobId.new(),
+            experiment_id=authorization.experiment_id,
+            plan_id=authorization.plan_id,
+            kind=self._kind(registration),
+            status=JobStatus.QUEUED,
+            submitted_at=authorization.authorized_at,
+        )
+        with self._sessions.begin() as session:
+            result = SqlAlchemyJobRepository(session).enqueue(job, authorization=authorization)
+            return self._result(result.job, created=result.created)
+
+    def replay(
+        self,
+        registration: ToolRegistration,
+        job_id: JobId,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult:
+        expected_kind = self._kind(registration)
+        with self._sessions() as session:
+            job = SqlAlchemyJobRepository(session).get(job_id)
+        if (
+            job is None
+            or job.experiment_id != authorization.experiment_id
+            or job.plan_id != authorization.plan_id
+            or job.kind is not expected_kind
+        ):
+            raise ToolDispatchError(JOB_REPLAY_MISMATCH)
+        return self._result(job, created=False)
+
+    def cancel(
+        self,
+        registration: ToolRegistration,
+        request: JobCancelRequest,
+        authorization: AuthorizedJobControl,
+    ) -> JobSubmissionResult:
+        expected_kind = self._kind(registration)
+        with self._sessions.begin() as session:
+            repository = SqlAlchemyJobRepository(session)
+            job = repository.get(request.job_id)
+            if job is None or job.experiment_id != authorization.experiment_id:
+                raise ToolDispatchError(JOB_REPLAY_MISMATCH)
+            if job.kind is not expected_kind:
+                raise ToolDispatchError(JOB_REPLAY_MISMATCH)
+            cancelled = repository.request_cancel(job_id=request.job_id)
+            return self._result(cancelled, created=False)
+
+
+class _DeferredWorkerResources(ResourceReservationPort):
+    """Persisted queue admission; the leased Worker acquires the physical GPU lock."""
+
+    def reserve(self, authorization: JobAuthorizationDraft) -> None:
         del authorization
-        raise ResourceUnavailableError(RESOURCE_RESERVATION_NOT_CONFIGURED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +459,8 @@ def build_production_gateway(
     dispatcher: ToolDispatcher = MvpToolDispatcher(
         provider_statuses=provider_statuses,
         experiment_plans=_SessionExperimentPlans(sessions),
+        plans=_SessionDomainPlans(sessions),
+        jobs=_SessionJobs(sessions),
     )
     dependencies = GatewayDependencies(
         registry=ToolRegistry(registrations),
@@ -251,7 +470,7 @@ def build_production_gateway(
         plans=_SessionPlans(sessions),
         approvals=_SessionApprovals(sessions),
         idempotency=_SessionIdempotency(sessions),
-        resources=_UnavailableResources(),
+        resources=_DeferredWorkerResources(),
         dispatcher=dispatcher,
         audit=_SessionAudit(sessions),
     )

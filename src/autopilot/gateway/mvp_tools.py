@@ -17,8 +17,22 @@ from autopilot.capabilities.optimization.tools import CreateOptimizationPlanInpu
 from autopilot.domain.base import NonEmptyStr, SchemaVersion, StrictModel
 from autopilot.domain.budgets import ExecutionBudget
 from autopilot.domain.constraints import SloSpec
-from autopilot.domain.enums import ExperimentPhase, RiskLevel, UserRole
-from autopilot.domain.identifiers import ExperimentId, JobId, Sha256Digest, ToolName
+from autopilot.domain.enums import (
+    ExperimentPhase,
+    JobStatus,
+    PlanKind,
+    PlanStatus,
+    RiskLevel,
+    UserRole,
+)
+from autopilot.domain.identifiers import (
+    ExperimentId,
+    JobId,
+    PlanHash,
+    PlanId,
+    Sha256Digest,
+    ToolName,
+)
 from autopilot.domain.identities import HumanSubject
 from autopilot.domain.models import ModelRef
 from autopilot.domain.plans import PlanExecutionRequest
@@ -26,6 +40,7 @@ from autopilot.domain.requirements import RequirementSpec
 from autopilot.domain.workloads import WorkloadSpec
 from autopilot.gateway.errors import ToolDispatchError
 from autopilot.gateway.models import (
+    AuthorizedJobControl,
     AuthorizedReadOnlyCall,
     JobAuthorizationDraft,
     ToolDefinition,
@@ -36,6 +51,7 @@ from autopilot.gateway.registry import ToolRegistration
 ProviderStatus = Literal["verified", "not_configured", "blocked"]
 PROVIDER_READ_NOT_CONFIGURED = "registered Provider read operation is not configured"
 PROVIDER_EXECUTION_NOT_CONFIGURED = "Provider execution and Worker are not configured"
+CANCEL_ARGUMENTS_INVALID = "cancel Tool arguments are invalid"
 EXPERIMENT_PLAN_STORE_NOT_CONFIGURED = "Experiment Plan store is not configured"
 EXPERIMENT_PLAN_REQUIRES_HUMAN = "Experiment Plan requires an authenticated human"
 
@@ -82,8 +98,67 @@ class ExperimentPlanWriter(Protocol):
     ) -> ExperimentPlanResult: ...
 
 
+class DomainPlanResult(StrictModel):
+    schema_version: Literal["domain-plan-result/v1"] = "domain-plan-result/v1"
+    experiment_id: ExperimentId
+    plan_id: PlanId
+    kind: PlanKind
+    status: PlanStatus
+    risk_level: RiskLevel
+    plan_hash: PlanHash
+    execution_schema_version: SchemaVersion
+    requires_approval: bool
+
+
+class DomainPlanWriter(Protocol):
+    def create(
+        self,
+        *,
+        kind: PlanKind,
+        risk_level: RiskLevel,
+        specification: BaseModel,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> DomainPlanResult: ...
+
+
+class JobSubmissionResult(StrictModel):
+    schema_version: Literal["job-submission-result/v1"] = "job-submission-result/v1"
+    experiment_id: ExperimentId
+    job_id: JobId
+    plan_id: PlanId
+    status: JobStatus
+    created: bool
+
+
+class DomainJobWriter(Protocol):
+    def enqueue(
+        self,
+        registration: ToolRegistration,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult: ...
+
+    def replay(
+        self,
+        registration: ToolRegistration,
+        job_id: JobId,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult: ...
+
+    def cancel(
+        self,
+        registration: ToolRegistration,
+        request: JobCancelRequest,
+        authorization: AuthorizedJobControl,
+    ) -> JobSubmissionResult: ...
+
+
 class JobQuery(StrictModel):
     schema_version: Literal["job-query/v1"] = "job-query/v1"
+    job_id: JobId
+
+
+class JobCancelRequest(StrictModel):
+    schema_version: Literal["job-cancel-request/v1"] = "job-cancel-request/v1"
     job_id: JobId
 
 
@@ -127,6 +202,8 @@ class MvpToolDispatcher:
 
     provider_statuses: Mapping[str, ProviderStatus]
     experiment_plans: ExperimentPlanWriter | None = None
+    plans: DomainPlanWriter | None = None
+    jobs: DomainJobWriter | None = None
 
     def invoke_read_only(
         self,
@@ -145,6 +222,33 @@ class MvpToolDispatcher:
             return self.experiment_plans.create(
                 arguments.requirement(authorization.subject),
                 authorization,
+            )
+        plan_request: tuple[PlanKind, RiskLevel, BaseModel] | None = None
+        if tool_name == "create_environment_plan" and isinstance(
+            arguments, CreateEnvironmentPlanInput
+        ):
+            plan_request = (PlanKind.ENVIRONMENT, RiskLevel.L1, arguments.specification)
+        elif tool_name == "create_deployment_plan" and isinstance(
+            arguments, CreateDeploymentPlanInput
+        ):
+            plan_request = (PlanKind.DEPLOYMENT, RiskLevel.L2, arguments.specification)
+        elif tool_name == "create_benchmark_plan" and isinstance(
+            arguments, CreateBenchmarkPlanInput
+        ):
+            plan_request = (PlanKind.BENCHMARK, RiskLevel.L2, arguments.specification)
+        elif tool_name == "create_optimization_plan" and isinstance(
+            arguments, CreateOptimizationPlanInput
+        ):
+            plan_request = (PlanKind.OPTIMIZATION, RiskLevel.L2, arguments.specification)
+        if plan_request is not None:
+            if self.plans is None:
+                raise ToolDispatchError(PROVIDER_READ_NOT_CONFIGURED)
+            kind, risk_level, specification = plan_request
+            return self.plans.create(
+                kind=kind,
+                risk_level=risk_level,
+                specification=specification,
+                authorization=authorization,
             )
         if tool_name != "get_mvp_capabilities_result":
             raise ToolDispatchError(PROVIDER_READ_NOT_CONFIGURED)
@@ -179,8 +283,10 @@ class MvpToolDispatcher:
         arguments: BaseModel,
         authorization: JobAuthorizationDraft,
     ) -> BaseModel:
-        del registration, arguments, authorization
-        raise ToolDispatchError(PROVIDER_EXECUTION_NOT_CONFIGURED)
+        del arguments
+        if self.jobs is None or not str(registration.definition.name).startswith("start_"):
+            raise ToolDispatchError(PROVIDER_EXECUTION_NOT_CONFIGURED)
+        return self.jobs.enqueue(registration, authorization)
 
     def replay_job(
         self,
@@ -188,8 +294,21 @@ class MvpToolDispatcher:
         job_id: JobId,
         authorization: JobAuthorizationDraft,
     ) -> BaseModel:
-        del registration, job_id, authorization
-        raise ToolDispatchError(PROVIDER_EXECUTION_NOT_CONFIGURED)
+        if self.jobs is None or not str(registration.definition.name).startswith("start_"):
+            raise ToolDispatchError(PROVIDER_EXECUTION_NOT_CONFIGURED)
+        return self.jobs.replay(registration, job_id, authorization)
+
+    def cancel_job(
+        self,
+        registration: ToolRegistration,
+        arguments: BaseModel,
+        authorization: AuthorizedJobControl,
+    ) -> BaseModel:
+        if self.jobs is None or not str(registration.definition.name).startswith("cancel_"):
+            raise ToolDispatchError(PROVIDER_EXECUTION_NOT_CONFIGURED)
+        if not isinstance(arguments, JobCancelRequest):
+            raise ToolDispatchError(CANCEL_ARGUMENTS_INVALID)
+        return self.jobs.cancel(registration, arguments, authorization)
 
 
 def _registration(spec: _ToolSpec) -> ToolRegistration:
@@ -206,7 +325,7 @@ def _registration(spec: _ToolSpec) -> ToolRegistration:
             allowed_roles=spec.roles,
             required_hardware_capabilities=spec.hardware,
             required_providers=() if spec.provider is None else (spec.provider,),
-            requires_plan=async_job,
+            requires_plan=spec.name.startswith("start_"),
         ),
         input_model=spec.input_model,
     )
@@ -261,11 +380,11 @@ def _job_tools(
         ),
         _ToolSpec(
             cancel_name,
-            "plan-execution-request/v1",
-            start_risk,
+            "job-cancel-request/v1",
+            RiskLevel.L1,
             phases,
             operator_roles,
-            PlanExecutionRequest,
+            JobCancelRequest,
             provider,
             hardware,
         ),
@@ -426,9 +545,14 @@ def provider_statuses(*, verified: Sequence[str] = ()) -> dict[str, ProviderStat
 __all__ = [
     "CapabilitiesQuery",
     "CreateExperimentPlanInput",
+    "DomainJobWriter",
+    "DomainPlanResult",
+    "DomainPlanWriter",
     "ExperimentPlanResult",
     "ExperimentPlanWriter",
+    "JobCancelRequest",
     "JobQuery",
+    "JobSubmissionResult",
     "MvpCapabilitiesResult",
     "MvpToolDispatcher",
     "ProviderAvailability",

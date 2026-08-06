@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from autopilot.domain.artifacts import ArtifactProducer
+from autopilot.domain.budgets import ExecutionBudget
 from autopilot.domain.enums import ExperimentPhase, JobKind, JobStatus, RiskLevel, UserRole
 from autopilot.domain.identifiers import (
     ArtifactId,
@@ -33,13 +34,23 @@ from autopilot.domain.identifiers import (
 )
 from autopilot.domain.identities import HumanSubject
 from autopilot.domain.jobs import JobRecord
+from autopilot.domain.plans import PlanExecutionRequest
+from autopilot.domain.requirements import RequirementSpec
 from autopilot.evidence.models import ArtifactMetadata, artifact_storage_path
 from autopilot.gateway.models import (
+    GatewayEnvironment,
     JobAuthorizationDraft,
+    ToolCallRequest,
     ToolSetEntry,
     VisibilityContext,
     create_toolset_snapshot,
 )
+from autopilot.gateway.mvp_tools import (
+    DomainPlanResult,
+    JobSubmissionResult,
+    provider_statuses,
+)
+from autopilot.gateway.runtime import build_production_gateway
 from autopilot.infrastructure.database.base import APP_SCHEMA, Base
 from autopilot.infrastructure.database.errors import (
     ArtifactBindingError,
@@ -69,9 +80,25 @@ from autopilot.infrastructure.database.session import (
     create_session_factory,
 )
 from autopilot.jobs.models import AuditEvent, AuditResult, JobEventType, JobTransition
+from autopilot.policy.models import (
+    PolicyDecision,
+    PolicyInput,
+    PolicyReasonCode,
+    PolicyRequirements,
+)
 
 _DATABASE_URL = os.environ.get("AUTOPILOT_TEST_POSTGRES_URL")
 _PROJECT_ROOT = Path(__file__).parents[2]
+
+
+class AllowPolicy:
+    def evaluate(self, policy_input: PolicyInput) -> PolicyDecision:
+        return PolicyDecision(
+            allow=True,
+            reason_code=PolicyReasonCode.ALLOW,
+            requirements=PolicyRequirements(human_approval=False),
+            decision_id=f"allow-{policy_input.request_id}",
+        )
 
 
 def _alembic_config(connection: object) -> Config:
@@ -240,6 +267,8 @@ def test_alembic_upgrade_matches_sqlalchemy_metadata(postgres_engine: Engine) ->
             "plans",
             "approvals",
             "artifacts",
+            "deployments",
+            "optimization_trials",
             "toolset_snapshots",
             "jobs",
             "idempotency_records",
@@ -531,4 +560,154 @@ def test_event_audit_authorization_and_plan_material_are_immutable(
         assert session.scalar(select(func.count()).select_from(AuditEventRow)) == 1
         assert session.scalar(select(func.count()).select_from(IdempotencyRow)) == 1
         assert session.scalar(select(func.count()).select_from(ToolSetSnapshotRow)) == 1
+        assert session.scalar(select(func.count()).select_from(JobAuthorizationRow)) == 1
+
+
+def test_production_gateway_persists_environment_plan_and_idempotent_job(
+    session_factory: sessionmaker[Session],
+) -> None:
+    now = datetime(2026, 8, 6, 8, 0, tzinfo=UTC)
+    subject = HumanSubject(user_id=UserId.new(), role=UserRole.OPERATOR)
+    requirements = RequirementSpec.model_validate(
+        {
+            "created_by": str(subject.user_id),
+            "model_ref": {
+                "type": "huggingface",
+                "repository_id": "Qwen/Qwen3-8B",
+                "revision": "a" * 40,
+            },
+            "priority": "throughput",
+            "workload": {
+                "dataset": {"type": "synthetic_fixed", "dataset_id": "medium-v1"},
+                "tokenizer": {
+                    "repository_id": "Qwen/Qwen3-8B",
+                    "revision": "a" * 40,
+                },
+                "prompt_tokens": 2048,
+                "output_tokens": 512,
+                "stream": True,
+                "ignore_eos": False,
+                "sampling": {"temperature": 0, "seed": 7},
+            },
+            "slo": {
+                "constraints": [
+                    {
+                        "kind": "numeric",
+                        "metric": "ttft_p95_ms",
+                        "operator": "<=",
+                        "value": 2000,
+                    }
+                ]
+            },
+            "budget": {
+                "max_duration_seconds": 600,
+                "max_requests": 100,
+                "max_input_tokens": 1_000_000,
+                "max_output_tokens": 100_000,
+                "max_disk_growth_bytes": 1_000_000_000,
+            },
+            "allow_model_download": True,
+            "allow_container_start": True,
+        }
+    )
+    experiment_id = ExperimentId.new()
+    with session_factory.begin() as session:
+        session.add(
+            ExperimentRow(
+                id=str(experiment_id),
+                status="active",
+                phase="environment",
+                created_by=str(subject.user_id),
+                requirements_json=requirements.model_dump(mode="json"),
+                graph_state_json={"status": "active", "phase": "environment"},
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+    assembly = build_production_gateway(
+        sessions=session_factory,
+        policy=AllowPolicy(),
+        budget_ceiling=ExecutionBudget(
+            max_duration_seconds=1800,
+            max_requests=10_000,
+            max_input_tokens=40_000_000,
+            max_output_tokens=10_000_000,
+            max_disk_growth_bytes=20_000_000_000,
+        ),
+        provider_statuses=provider_statuses(verified=("nvml",)),
+        clock=lambda: now,
+    )
+    environment = GatewayEnvironment(
+        experiment_id=experiment_id,
+        subject=subject,
+        enabled_providers=frozenset({"nvml"}),
+    )
+    snapshot = assembly.gateway.available_tools(
+        environment=environment,
+        request_id="integration-visible-tools",
+    )
+    create_plan = next(
+        entry for entry in snapshot.tools if str(entry.name) == "create_environment_plan"
+    )
+    plan_result = assembly.gateway.invoke(
+        request=ToolCallRequest(
+            request_id="integration-create-plan",
+            tool_name=create_plan.name,
+            tool_set_id=snapshot.tool_set_id,
+            expected_tool_set_version=snapshot.tool_set_version,
+            arguments={
+                "specification": {
+                    "provider_version": "13.610.43",
+                    "adapter_version": "environment-adapter-v1",
+                    "provider_profile_version": "rtx5090-v1",
+                    "scope": "mvp_full",
+                    "include_runtime_probe": True,
+                }
+            },
+        ),
+        environment=environment,
+    )
+    assert isinstance(plan_result, DomainPlanResult)
+    assert plan_result.status.value == "approved"
+    assert plan_result.requires_approval is False
+
+    start_tool = next(
+        entry for entry in snapshot.tools if str(entry.name) == "start_environment_inspection"
+    )
+    start_arguments = PlanExecutionRequest(
+        plan_id=plan_result.plan_id,
+        expected_plan_hash=plan_result.plan_hash,
+    ).model_dump(mode="json")
+    first = assembly.gateway.invoke(
+        request=ToolCallRequest(
+            request_id="integration-start-environment",
+            tool_name=start_tool.name,
+            tool_set_id=snapshot.tool_set_id,
+            expected_tool_set_version=snapshot.tool_set_version,
+            arguments=start_arguments,
+        ),
+        environment=environment,
+    )
+    replay = assembly.gateway.invoke(
+        request=ToolCallRequest(
+            request_id="integration-replay-environment",
+            tool_name=start_tool.name,
+            tool_set_id=snapshot.tool_set_id,
+            expected_tool_set_version=snapshot.tool_set_version,
+            arguments=start_arguments,
+        ),
+        environment=environment,
+    )
+
+    assert isinstance(first, JobSubmissionResult)
+    assert isinstance(replay, JobSubmissionResult)
+    assert first.created is True
+    assert replay.created is False
+    assert replay.job_id == first.job_id
+    with session_factory() as session:
+        plan = session.get(PlanRow, str(plan_result.plan_id))
+        assert plan is not None
+        assert plan.body_json["execution_specification"]["inspection"]["scope"] == "mvp_full"
+        assert session.scalar(select(func.count()).select_from(JobRow)) == 1
         assert session.scalar(select(func.count()).select_from(JobAuthorizationRow)) == 1

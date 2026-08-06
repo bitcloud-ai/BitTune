@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, Self
 
-from pydantic import model_validator
+from pydantic import SerializeAsAny, model_validator
 
 from autopilot.domain.base import NonEmptyStr, SchemaVersion, StrictModel, UtcDatetime
 from autopilot.domain.budgets import ExecutionBudget
@@ -30,7 +30,7 @@ class PlanHashMaterial[ExecutionSpecificationT: ExecutionSpecification](StrictMo
     experiment_id: ExperimentId
     kind: PlanKind
     risk_level: RiskLevel
-    execution_specification: ExecutionSpecificationT
+    execution_specification: SerializeAsAny[ExecutionSpecificationT]
 
 
 def compute_plan_envelope_hash[ExecutionSpecificationT: ExecutionSpecification](
@@ -59,7 +59,7 @@ class PlanEnvelope[ExecutionSpecificationT: ExecutionSpecification](StrictModel)
     kind: PlanKind
     status: PlanStatus = PlanStatus.DRAFT
     risk_level: RiskLevel
-    execution_specification: ExecutionSpecificationT
+    execution_specification: SerializeAsAny[ExecutionSpecificationT]
     plan_hash: PlanHash
     created_at: UtcDatetime
 

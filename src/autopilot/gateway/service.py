@@ -27,6 +27,7 @@ from autopilot.gateway.errors import (
     WorkflowStateError,
 )
 from autopilot.gateway.models import (
+    AuthorizedJobControl,
     AuthorizedReadOnlyCall,
     GatewayEnvironment,
     IdempotencyKeyMaterial,
@@ -495,6 +496,22 @@ class ToolGateway:
                     registration,
                     arguments,
                     AuthorizedReadOnlyCall(
+                        experiment_id=invocation.environment.experiment_id,
+                        subject=invocation.environment.subject,
+                        action=registration.definition.name,
+                        tool_schema_version=registration.definition.input_schema_version,
+                        tool_set_id=snapshot.tool_set_id,
+                        tool_set_version=snapshot.tool_set_version,
+                        policy_decision_id=authorization.policy_decision.decision_id,
+                        request_hash=request_hash,
+                        authorized_at=invocation.now,
+                    ),
+                )
+            if str(registration.definition.name).startswith("cancel_"):
+                return self._dependencies.dispatcher.cancel_job(
+                    registration,
+                    arguments,
+                    AuthorizedJobControl(
                         experiment_id=invocation.environment.experiment_id,
                         subject=invocation.environment.subject,
                         action=registration.definition.name,

@@ -1,0 +1,157 @@
+{
+  "$defs": {
+    "EnvironmentInspectionSpecification": {
+      "additionalProperties": false,
+      "description": "Immutable, read-only inspection input.",
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "include_runtime_probe": {
+          "default": true,
+          "title": "Include Runtime Probe",
+          "type": "boolean"
+        },
+        "provider": {
+          "const": "nvml",
+          "default": "nvml",
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_profile_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Profile Version",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "environment-inspection-specification/v1",
+          "default": "environment-inspection-specification/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "const": "mvp_full",
+          "default": "mvp_full",
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider_version",
+        "adapter_version",
+        "provider_profile_version"
+      ],
+      "title": "EnvironmentInspectionSpecification",
+      "type": "object"
+    },
+    "ExecutionBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_disk_growth_bytes": {
+          "maximum": 20000000000,
+          "minimum": 1,
+          "title": "Max Disk Growth Bytes",
+          "type": "integer"
+        },
+        "max_duration_seconds": {
+          "maximum": 1800,
+          "minimum": 1,
+          "title": "Max Duration Seconds",
+          "type": "integer"
+        },
+        "max_input_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_requests": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Requests",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "execution-budget/v1",
+          "default": "execution-budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "max_duration_seconds",
+        "max_requests",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_disk_growth_bytes"
+      ],
+      "title": "ExecutionBudget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persisted execution material with the Experiment budget bound server-side.",
+  "properties": {
+    "adapter_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Adapter Version",
+      "type": "string"
+    },
+    "budget": {
+      "$ref": "#/$defs/ExecutionBudget"
+    },
+    "inspection": {
+      "$ref": "#/$defs/EnvironmentInspectionSpecification"
+    },
+    "provider": {
+      "const": "nvml",
+      "default": "nvml",
+      "title": "Provider",
+      "type": "string"
+    },
+    "provider_profile_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Profile Version",
+      "type": "string"
+    },
+    "provider_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "environment-execution-specification/v1",
+      "default": "environment-execution-specification/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_version",
+    "adapter_version",
+    "provider_profile_version",
+    "budget",
+    "inspection"
+  ],
+  "title": "EnvironmentExecutionSpecification",
+  "type": "object"
+}

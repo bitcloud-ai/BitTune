@@ -7,6 +7,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from autopilot.domain.base import NonEmptyStr, StrictModel, UtcDatetime
+from autopilot.domain.budgets import ExecutionBudget
 from autopilot.domain.enums import Confidence
 from autopilot.domain.hardware import (
     GpuProcess,
@@ -18,10 +19,12 @@ from autopilot.domain.hardware import (
     StorageVolume,
 )
 from autopilot.domain.identifiers import HardwarePassportId
+from autopilot.domain.plans import ExecutionSpecification
 
 INVALID_GPU_MEMORY = "GPU snapshot free memory cannot exceed total memory"
 INVALID_GPU_INDEX = "the MVP environment snapshot must describe GPU 0"
 INVALID_RESULT_ID = "environment result ID must match its Hardware Passport"
+INVALID_EXECUTION_BINDING = "environment execution profile must match its inspection specification"
 
 
 class EnvironmentVersionProfile(StrictModel):
@@ -50,6 +53,27 @@ class EnvironmentInspectionSpecification(StrictModel):
     provider_profile_version: NonEmptyStr
     scope: Literal["mvp_full"] = "mvp_full"
     include_runtime_probe: bool = True
+
+
+class EnvironmentExecutionSpecification(ExecutionSpecification):
+    """Persisted execution material with the Experiment budget bound server-side."""
+
+    schema_version: Literal["environment-execution-specification/v1"] = (
+        "environment-execution-specification/v1"
+    )
+    provider: Literal["nvml"] = "nvml"
+    budget: ExecutionBudget
+    inspection: EnvironmentInspectionSpecification
+
+    @model_validator(mode="after")
+    def validate_profile_binding(self) -> Self:
+        if (
+            self.provider_version != self.inspection.provider_version
+            or self.adapter_version != self.inspection.adapter_version
+            or self.provider_profile_version != self.inspection.provider_profile_version
+        ):
+            raise ValueError(INVALID_EXECUTION_BINDING)
+        return self
 
 
 class GpuSnapshot(StrictModel):

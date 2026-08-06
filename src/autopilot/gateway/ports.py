@@ -17,6 +17,7 @@ from autopilot.domain.identifiers import (
     ToolSetId,
 )
 from autopilot.gateway.models import (
+    AuthorizedJobControl,
     AuthorizedReadOnlyCall,
     JobAuthorizationDraft,
     JobAuthorizationRecord,
@@ -108,6 +109,13 @@ class ToolDispatcher(Protocol):
         registration: ToolRegistration,
         job_id: JobId,
         authorization: JobAuthorizationDraft,
+    ) -> BaseModel: ...
+
+    def cancel_job(
+        self,
+        registration: ToolRegistration,
+        arguments: BaseModel,
+        authorization: AuthorizedJobControl,
     ) -> BaseModel: ...
 
 

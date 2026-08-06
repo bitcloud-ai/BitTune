@@ -32,6 +32,7 @@ from autopilot.capabilities.benchmark.domain.models import (
     BenchmarkResult,
 )
 from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
+from autopilot.capabilities.environment.domain.models import EnvironmentExecutionSpecification
 from autopilot.capabilities.evidence.domain.models import (
     ChampionPolicy,
     EvidenceBundle,
@@ -59,7 +60,13 @@ from autopilot.gateway.models import (
     ToolDefinition,
     ToolSetSnapshot,
 )
-from autopilot.gateway.mvp_tools import CreateExperimentPlanInput, ExperimentPlanResult
+from autopilot.gateway.mvp_tools import (
+    CreateExperimentPlanInput,
+    DomainPlanResult,
+    ExperimentPlanResult,
+    JobCancelRequest,
+    JobSubmissionResult,
+)
 from autopilot.graph.agent import AgentMessageView, AgentToolCallView
 from autopilot.graph.model_provider import BenchmarkIntent, FailureAnalysis, ReportDraft
 from autopilot.graph.runtime_defaults import UnavailableModelProvider, UnavailableReconciler
@@ -94,6 +101,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "champion-selection-v2": ChampionSelection,
     "deployment-candidate-v1": DeploymentCandidate,
     "deployment-execution-specification-v1": DeploymentExecutionSpecification,
+    "domain-plan-result-v1": DomainPlanResult,
+    "environment-execution-specification-v1": EnvironmentExecutionSpecification,
     "error-envelope-v1": ErrorEnvelope,
     "experiment-plan-result-v1": ExperimentPlanResult,
     "evidence-bundle-manifest-v1": EvidenceBundleManifest,
@@ -104,6 +113,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "hardware-passport-v1": HardwarePassport,
     "job-v1": JobRecord,
     "job-authorization-v1": JobAuthorizationRecord,
+    "job-cancel-request-v1": JobCancelRequest,
+    "job-submission-result-v1": JobSubmissionResult,
     "create-experiment-plan-input-v1": CreateExperimentPlanInput,
     "model-profile-v1": ModelProfile,
     "optimization-trial-v1": TrialRecord,

@@ -66,8 +66,8 @@ class ToolDefinition(StrictModel):
         )
         if any(len(values) != len(set(values)) for values in collections):
             raise ValueError(INVALID_TOOL_REQUIREMENTS)
-        if self.execution_mode is ToolExecutionMode.ASYNC_JOB and (
-            not str(self.name).startswith(("start_", "cancel_")) or not self.requires_plan
+        if self.execution_mode is ToolExecutionMode.ASYNC_JOB and not str(self.name).startswith(
+            ("start_", "cancel_")
         ):
             raise ValueError(INVALID_TOOL_EXECUTION_MODE)
         return self
@@ -259,6 +259,21 @@ class JobIdempotencyClaim(StrictModel):
 
 class AuthorizedReadOnlyCall(StrictModel):
     schema_version: Literal["authorized-read-only-call/v1"] = "authorized-read-only-call/v1"
+    experiment_id: ExperimentId
+    subject: Subject
+    action: ToolName
+    tool_schema_version: SchemaVersion
+    tool_set_id: ToolSetId
+    tool_set_version: Sha256Digest
+    policy_decision_id: NonEmptyStr
+    request_hash: Sha256Digest
+    authorized_at: UtcDatetime
+
+
+class AuthorizedJobControl(StrictModel):
+    """Authorization evidence for idempotent control of an existing Job."""
+
+    schema_version: Literal["authorized-job-control/v1"] = "authorized-job-control/v1"
     experiment_id: ExperimentId
     subject: Subject
     action: ToolName

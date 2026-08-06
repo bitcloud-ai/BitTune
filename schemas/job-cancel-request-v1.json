@@ -1,0 +1,25 @@
+{
+  "$defs": {
+    "JobId": {
+      "title": "JobId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "$ref": "#/$defs/JobId"
+    },
+    "schema_version": {
+      "const": "job-cancel-request/v1",
+      "default": "job-cancel-request/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id"
+  ],
+  "title": "JobCancelRequest",
+  "type": "object"
+}

@@ -1,17 +1,39 @@
 from datetime import UTC, datetime
 
-from autopilot.domain.enums import ExperimentPhase, UserRole
-from autopilot.domain.identifiers import ExperimentId, Sha256Digest, ToolSetId, UserId
+from pydantic import BaseModel
+
+from autopilot.capabilities.environment.tools import CreateEnvironmentPlanInput
+from autopilot.domain.enums import (
+    ExperimentPhase,
+    JobStatus,
+    PlanKind,
+    PlanStatus,
+    RiskLevel,
+    UserRole,
+)
+from autopilot.domain.identifiers import (
+    ExperimentId,
+    JobId,
+    PlanHash,
+    PlanId,
+    Sha256Digest,
+    ToolSetId,
+    UserId,
+)
 from autopilot.domain.identities import HumanSubject
+from autopilot.domain.plans import PlanExecutionRequest
 from autopilot.domain.requirements import RequirementSpec
-from autopilot.gateway.models import AuthorizedReadOnlyCall
+from autopilot.gateway.models import AuthorizedReadOnlyCall, JobAuthorizationDraft
 from autopilot.gateway.mvp_tools import (
     CreateExperimentPlanInput,
+    DomainPlanResult,
     ExperimentPlanResult,
+    JobSubmissionResult,
     MvpToolDispatcher,
     mvp_tool_registrations,
     provider_statuses,
 )
+from autopilot.gateway.registry import ToolRegistration
 
 
 class RecordingExperimentPlans:
@@ -28,6 +50,69 @@ class RecordingExperimentPlans:
         return ExperimentPlanResult(
             experiment_id=authorization.experiment_id,
             requirements_hash=Sha256Digest(root="sha256:" + "9" * 64),
+        )
+
+
+class RecordingDomainPlans:
+    def __init__(self) -> None:
+        self.kind: PlanKind | None = None
+        self.risk_level: RiskLevel | None = None
+        self.specification: BaseModel | None = None
+
+    def create(
+        self,
+        *,
+        kind: PlanKind,
+        risk_level: RiskLevel,
+        specification: BaseModel,
+        authorization: AuthorizedReadOnlyCall,
+    ) -> DomainPlanResult:
+        self.kind = kind
+        self.risk_level = risk_level
+        self.specification = specification
+        return DomainPlanResult(
+            experiment_id=authorization.experiment_id,
+            plan_id=PlanId(root="plan_" + "3" * 32),
+            kind=kind,
+            status=PlanStatus.APPROVED,
+            risk_level=risk_level,
+            plan_hash=PlanHash(root="sha256:" + "4" * 64),
+            execution_schema_version="environment-execution-specification/v1",
+            requires_approval=False,
+        )
+
+
+class RecordingJobs:
+    def __init__(self) -> None:
+        self.registration: ToolRegistration | None = None
+
+    def enqueue(
+        self,
+        registration: ToolRegistration,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult:
+        self.registration = registration
+        return JobSubmissionResult(
+            experiment_id=authorization.experiment_id,
+            job_id=JobId(root="job_" + "5" * 32),
+            plan_id=authorization.plan_id,
+            status=JobStatus.QUEUED,
+            created=True,
+        )
+
+    def replay(
+        self,
+        registration: ToolRegistration,
+        job_id: JobId,
+        authorization: JobAuthorizationDraft,
+    ) -> JobSubmissionResult:
+        self.registration = registration
+        return JobSubmissionResult(
+            experiment_id=authorization.experiment_id,
+            job_id=job_id,
+            plan_id=authorization.plan_id,
+            status=JobStatus.QUEUED,
+            created=False,
         )
 
 
@@ -104,3 +189,78 @@ def test_requirements_phase_registers_and_dispatches_create_experiment_plan() ->
     assert writer.requirements is not None
     assert writer.requirements.created_by == subject.user_id
     assert writer.requirements.model_ref.repository_id == "Qwen/Qwen3-8B"
+
+
+def test_environment_plan_is_persisted_as_an_l1_domain_plan() -> None:
+    registration = next(
+        item
+        for item in mvp_tool_registrations()
+        if str(item.definition.name) == "create_environment_plan"
+    )
+    writer = RecordingDomainPlans()
+    dispatcher = MvpToolDispatcher(provider_statuses=provider_statuses(), plans=writer)
+    authorization = AuthorizedReadOnlyCall(
+        experiment_id=ExperimentId.new(),
+        subject=HumanSubject(user_id=UserId.new(), role=UserRole.OPERATOR),
+        action=registration.definition.name,
+        tool_schema_version=registration.definition.input_schema_version,
+        tool_set_id=ToolSetId.new(),
+        tool_set_version=Sha256Digest(root="sha256:" + "8" * 64),
+        policy_decision_id="decision-2",
+        request_hash=Sha256Digest(root="sha256:" + "7" * 64),
+        authorized_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+    arguments = CreateEnvironmentPlanInput.model_validate(
+        {
+            "specification": {
+                "provider_version": "13.610.43",
+                "adapter_version": "environment-adapter-v1",
+                "provider_profile_version": "rtx5090-v1",
+                "scope": "mvp_full",
+                "include_runtime_probe": True,
+            }
+        }
+    )
+
+    result = dispatcher.invoke_read_only(registration, arguments, authorization)
+
+    assert isinstance(result, DomainPlanResult)
+    assert writer.kind is PlanKind.ENVIRONMENT
+    assert writer.risk_level is RiskLevel.L1
+    assert writer.specification == arguments.specification
+
+
+def test_start_tool_enqueues_the_authorized_plan() -> None:
+    registration = next(
+        item
+        for item in mvp_tool_registrations()
+        if str(item.definition.name) == "start_environment_inspection"
+    )
+    writer = RecordingJobs()
+    dispatcher = MvpToolDispatcher(provider_statuses=provider_statuses(), jobs=writer)
+    experiment_id = ExperimentId.new()
+    plan_id = PlanId.new()
+    plan_hash = PlanHash(root="sha256:" + "6" * 64)
+    authorization = JobAuthorizationDraft(
+        experiment_id=experiment_id,
+        subject=HumanSubject(user_id=UserId.new(), role=UserRole.OPERATOR),
+        action=registration.definition.name,
+        risk_level=RiskLevel.L1,
+        plan_id=plan_id,
+        plan_hash=plan_hash,
+        tool_schema_version=registration.definition.input_schema_version,
+        tool_set_id=ToolSetId.new(),
+        tool_set_version=Sha256Digest(root="sha256:" + "8" * 64),
+        policy_decision_id="decision-3",
+        request_hash=Sha256Digest(root="sha256:" + "7" * 64),
+        idempotency_key=Sha256Digest(root="sha256:" + "9" * 64),
+        authorized_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+    arguments = PlanExecutionRequest(plan_id=plan_id, expected_plan_hash=plan_hash)
+
+    result = dispatcher.enqueue_job(registration, arguments, authorization)
+
+    assert isinstance(result, JobSubmissionResult)
+    assert result.plan_id == plan_id
+    assert result.status is JobStatus.QUEUED
+    assert writer.registration is registration

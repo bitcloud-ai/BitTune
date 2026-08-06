@@ -233,14 +233,14 @@ uv run pytest tests/unit tests/contract
   Champion/Fallback Policy、Golden Test、公共 Schema 和能力包 Manifest 已落地，标准检查已通过；
 - M3 已完成实现和非 PostgreSQL 验证：SQLAlchemy/Alembic、Lease Queue、Fencing、幂等、
   Event/Audit、取消请求及 Artifact Store 已落地；Artifact 重启恢复测试已通过；
-- M3 的 6 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
-  `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
+- M3 的 PostgreSQL 集成验收已在隔离 PostgreSQL 16 测试库执行通过，覆盖 Lease、Fencing、
+  幂等、取消、Artifact 和重启恢复；
 - M4 已完成实现和非 PostgreSQL 验证：opaque Bearer Token 认证、动态 Tool 可见性、
   Gateway 强制链、OPA fail-closed Client/Rego、Approval v2、Tool Set Snapshot、Job
   Authorization 及资源预留前的事务级幂等 Claim 已落地；
 - M4 的真实 Rego Golden Test 需要本机 `opa` 可执行文件，当前环境缺失，因此 14 项跳过；
-- M3/M4 的 13 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
-  `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
+- M3/M4 的 PostgreSQL 集成验收共 14 项已通过；OPA Rego Golden Test 仍因 Windows 环境
+  没有本机 `opa` 可执行文件而跳过；
 - M5 已完成实现和 Windows/Fake 验证：FastAPI + Uvicorn UDS、类型化白名单请求、
   Docker SDK Adapter、单 GPU Lease、路径/Secret/日志边界、vLLM 分层健康检查、取消、超时、
   磁盘预算、清理和权威快照约束的 Reconciliation 已落地；真实 Linux UDS、Docker、systemd
@@ -265,20 +265,21 @@ uv run pytest tests/unit tests/contract
   JSON Schema。`create_experiment_plan` 已通过 Gateway 将认证主体、模型、Workload、SLO、预算和
   权限写入 PostgreSQL Experiment 投影与 Graph State；Agent Interrupt 已接入独立 Approval v2，
   同步和 SSE 恢复都会校验 Plan ID/Hash/Action，并在模型恢复失败时回到可重试的审批状态。
-  Graph/API/TUI Fake 测试已通过；真实
+  Graph/API/TUI Fake 测试已通过；公共 Schema 已由代码生成并增至 55 个；真实
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
   配置模板、迁移入口、备份恢复文档、基于 Click 的 REST/SSE CLI、Compose 安全契约测试，
   以及代码生成的 OpenAPI。
   M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境。
-- 整体 MVP 尚未完成：领域 Plan 持久化、Gateway Job Dispatcher、PostgreSQL Lease Worker 和
-  M6 REST 执行路径尚未贯通；生产 Dispatcher 当前只执行能力查询和 Experiment 需求计划，
-  其余动作分类拒绝。不得将当前状态描述为完整闭环。
-- 未创建虚假的 Worker 进程。后续只把已实现的 Capability Service/Adapter 接入既有 PostgreSQL
-  Lease Queue 和 Host Runner；真实 Provider Profile 未固定时继续 fail-closed，不回退 Fake。
+- 领域 Plan 持久化和 Gateway Job Dispatcher 已完成：Environment、Deployment、Benchmark、
+  Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
+  Approval v2；`start_*` 已完成幂等授权、Job 入队、审计和可重放响应。生产 Provider 未完成
+  G0 验证时仍 fail-closed，不回退 Fake。
+- PostgreSQL Lease Worker 和 M6 REST 执行路径仍未贯通；下一阶段只实现一个复用现有
+  Lease Queue、Capability Port/Adapter 和 Host Runner 的 Worker，不引入 Celery、第二套队列
+  或新的 Agent loop。
 
-下一执行顺序固定为：领域 `create_*_plan` 持久化 → `start_*` 入队 Dispatcher → Lease Worker
-执行前复核授权 → Capability Service/Adapter → Host Runner → Job/Artifact/Graph 对账 →
-REST/Agent/Textual 主路径验收。未来多领域子 Agent 只按 ADR-017 的 supervisor-as-tool 边界扩展，
-不改变上述确定性执行链。
+下一执行顺序固定为：Lease Worker 执行前复核授权 → Capability Service/Adapter → Host Runner
+→ Job/Artifact/Graph 对账 → `cancel_*` Job Control → REST/Agent/Textual 主路径验收。未来多领域
+子 Agent 只按 ADR-017 的 supervisor-as-tool 边界扩展，不改变上述确定性执行链。

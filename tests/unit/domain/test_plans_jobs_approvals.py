@@ -68,6 +68,31 @@ def test_plan_envelope_rejects_hash_mismatch(execution_budget: ExecutionBudget) 
         )
 
 
+def test_plan_envelope_preserves_concrete_execution_fields(
+    execution_budget: ExecutionBudget,
+) -> None:
+    specification = make_specification(execution_budget)
+    plan_id = PlanId.new()
+    experiment_id = ExperimentId.new()
+    envelope = PlanEnvelope[ExecutionSpecification](
+        plan_id=plan_id,
+        experiment_id=experiment_id,
+        kind=PlanKind.BENCHMARK,
+        risk_level=RiskLevel.L2,
+        execution_specification=specification,
+        plan_hash=compute_plan_envelope_hash(
+            plan_id=plan_id,
+            experiment_id=experiment_id,
+            kind=PlanKind.BENCHMARK,
+            risk_level=RiskLevel.L2,
+            execution_specification=specification,
+        ),
+        created_at=datetime.now(UTC),
+    )
+
+    assert envelope.model_dump(mode="json")["execution_specification"]["value"] == 1
+
+
 def test_plan_execution_request_has_no_mutable_execution_fields() -> None:
     schema_fields = PlanExecutionRequest.model_fields
 
