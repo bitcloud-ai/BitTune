@@ -1,0 +1,937 @@
+{
+  "$defs": {
+    "ArtifactDataset": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "type": {
+          "const": "artifact",
+          "default": "artifact",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact"
+      ],
+      "title": "ArtifactDataset",
+      "type": "object"
+    },
+    "ArtifactId": {
+      "title": "ArtifactId",
+      "type": "string"
+    },
+    "ArtifactModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "artifact",
+          "default": "artifact",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "revision"
+      ],
+      "title": "ArtifactModelRef",
+      "type": "object"
+    },
+    "ArtifactProducer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "title": "ArtifactProducer",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactId"
+        },
+        "content_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Content Type",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "schema_version": {
+          "const": "artifact-ref/v1",
+          "default": "artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "size_bytes": {
+          "maximum": 100000000000,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content_type",
+        "size_bytes",
+        "producer"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapacityPlanningSpecification": {
+      "additionalProperties": false,
+      "description": "Provider-independent immutable input for a single-GPU capacity plan.",
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "expected_concurrency": {
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Expected Concurrency",
+          "type": "integer"
+        },
+        "hardware_passport": {
+          "$ref": "#/$defs/HardwarePassport"
+        },
+        "model_ref": {
+          "discriminator": {
+            "mapping": {
+              "artifact": "#/$defs/ArtifactModelRef",
+              "huggingface": "#/$defs/HuggingFaceModelRef"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HuggingFaceModelRef"
+            },
+            {
+              "$ref": "#/$defs/ArtifactModelRef"
+            }
+          ],
+          "title": "Model Ref"
+        },
+        "provider": {
+          "const": "llm-d-planner",
+          "default": "llm-d-planner",
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_profile_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Profile Version",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "requested_gpu_memory_utilization": {
+          "maximum": 0.94,
+          "minimum": 0.8,
+          "title": "Requested Gpu Memory Utilization",
+          "type": "number"
+        },
+        "requested_max_model_len": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Requested Max Model Len",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "capacity-planning-specification/v1",
+          "default": "capacity-planning-specification/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tensor_parallel_size": {
+          "const": 1,
+          "default": 1,
+          "title": "Tensor Parallel Size",
+          "type": "integer"
+        },
+        "trust_remote_code": {
+          "const": false,
+          "default": false,
+          "title": "Trust Remote Code",
+          "type": "boolean"
+        },
+        "workload": {
+          "$ref": "#/$defs/WorkloadSpec"
+        }
+      },
+      "required": [
+        "provider_version",
+        "adapter_version",
+        "provider_profile_version",
+        "model_ref",
+        "hardware_passport",
+        "workload",
+        "requested_max_model_len",
+        "requested_gpu_memory_utilization",
+        "expected_concurrency"
+      ],
+      "title": "CapacityPlanningSpecification",
+      "type": "object"
+    },
+    "EnvironmentIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "blocker"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "EnvironmentIssue",
+      "type": "object"
+    },
+    "ExecutionBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_disk_growth_bytes": {
+          "maximum": 20000000000,
+          "minimum": 1,
+          "title": "Max Disk Growth Bytes",
+          "type": "integer"
+        },
+        "max_duration_seconds": {
+          "maximum": 1800,
+          "minimum": 1,
+          "title": "Max Duration Seconds",
+          "type": "integer"
+        },
+        "max_input_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_requests": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Requests",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "execution-budget/v1",
+          "default": "execution-budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "max_duration_seconds",
+        "max_requests",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_disk_growth_bytes"
+      ],
+      "title": "ExecutionBudget",
+      "type": "object"
+    },
+    "GpuProcess": {
+      "additionalProperties": false,
+      "properties": {
+        "process_id": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "title": "Process Id",
+          "type": "integer"
+        },
+        "used_memory_bytes": {
+          "maximum": 1000000000000,
+          "minimum": 0,
+          "title": "Used Memory Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "process_id",
+        "used_memory_bytes"
+      ],
+      "title": "GpuProcess",
+      "type": "object"
+    },
+    "HardwarePassport": {
+      "additionalProperties": false,
+      "properties": {
+        "accelerators": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NvidiaAccelerator"
+          },
+          "maxItems": 1,
+          "title": "Accelerators",
+          "type": "array"
+        },
+        "capabilities": {
+          "default": [],
+          "items": {
+            "enum": [
+              "single_nvidia_gpu",
+              "docker_gpu",
+              "vllm_single_gpu_candidate"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "cpu": {
+          "$ref": "#/$defs/HostCpu"
+        },
+        "hardware_passport_id": {
+          "$ref": "#/$defs/HardwarePassportId"
+        },
+        "issues": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EnvironmentIssue"
+          },
+          "maxItems": 256,
+          "title": "Issues",
+          "type": "array"
+        },
+        "memory": {
+          "$ref": "#/$defs/HostMemory"
+        },
+        "os": {
+          "$ref": "#/$defs/HostOs"
+        },
+        "provenance": {
+          "$ref": "#/$defs/MeasuredProvenance"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeVersions"
+        },
+        "schema_version": {
+          "const": "hardware-passport/v1",
+          "default": "hardware-passport/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage": {
+          "items": {
+            "$ref": "#/$defs/StorageVolume"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Storage",
+          "type": "array"
+        }
+      },
+      "required": [
+        "hardware_passport_id",
+        "captured_at",
+        "os",
+        "cpu",
+        "memory",
+        "storage",
+        "runtime",
+        "provenance"
+      ],
+      "title": "HardwarePassport",
+      "type": "object"
+    },
+    "HardwarePassportId": {
+      "title": "HardwarePassportId",
+      "type": "string"
+    },
+    "HostCpu": {
+      "additionalProperties": false,
+      "properties": {
+        "logical_cores": {
+          "maximum": 65536,
+          "minimum": 1,
+          "title": "Logical Cores",
+          "type": "integer"
+        },
+        "model": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "logical_cores"
+      ],
+      "title": "HostCpu",
+      "type": "object"
+    },
+    "HostMemory": {
+      "additionalProperties": false,
+      "properties": {
+        "available_bytes": {
+          "maximum": 10000000000000,
+          "minimum": 0,
+          "title": "Available Bytes",
+          "type": "integer"
+        },
+        "total_bytes": {
+          "maximum": 10000000000000,
+          "minimum": 1,
+          "title": "Total Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_bytes",
+        "available_bytes"
+      ],
+      "title": "HostMemory",
+      "type": "object"
+    },
+    "HostOs": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Architecture",
+          "type": "string"
+        },
+        "kernel": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Kernel",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "kernel",
+        "architecture"
+      ],
+      "title": "HostOs",
+      "type": "object"
+    },
+    "HuggingFaceModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        },
+        "type": {
+          "const": "huggingface",
+          "default": "huggingface",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_id",
+        "revision"
+      ],
+      "title": "HuggingFaceModelRef",
+      "type": "object"
+    },
+    "MeasuredProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Adapter Version",
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "raw_artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "source": {
+          "const": "measured",
+          "default": "measured",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_version",
+        "adapter_version",
+        "raw_artifact"
+      ],
+      "title": "MeasuredProvenance",
+      "type": "object"
+    },
+    "ModelRevision": {
+      "description": "Immutable model repository commit revision.",
+      "title": "ModelRevision",
+      "type": "string"
+    },
+    "NvidiaAccelerator": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "const": 0,
+          "default": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "memory_free_bytes": {
+          "maximum": 1000000000000,
+          "minimum": 0,
+          "title": "Memory Free Bytes",
+          "type": "integer"
+        },
+        "memory_total_bytes": {
+          "maximum": 1000000000000,
+          "minimum": 1,
+          "title": "Memory Total Bytes",
+          "type": "integer"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "power_watts": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Power Watts"
+        },
+        "processes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GpuProcess"
+          },
+          "maxItems": 4096,
+          "title": "Processes",
+          "type": "array"
+        },
+        "temperature_celsius": {
+          "maximum": 200,
+          "minimum": -100,
+          "title": "Temperature Celsius",
+          "type": "number"
+        },
+        "utilization_percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Utilization Percent",
+          "type": "number"
+        },
+        "uuid": {
+          "pattern": "^GPU-[A-Fa-f0-9-]{16,64}$",
+          "title": "Uuid",
+          "type": "string"
+        },
+        "vendor": {
+          "const": "nvidia",
+          "default": "nvidia",
+          "title": "Vendor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "uuid",
+        "memory_total_bytes",
+        "memory_free_bytes",
+        "temperature_celsius",
+        "utilization_percent"
+      ],
+      "title": "NvidiaAccelerator",
+      "type": "object"
+    },
+    "RuntimeVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "compose_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Compose Version"
+        },
+        "docker_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Docker Version"
+        },
+        "driver_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Driver Version"
+        },
+        "gpu_container_probe": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_run"
+          ],
+          "title": "Gpu Container Probe",
+          "type": "string"
+        },
+        "nvidia_container_toolkit_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Nvidia Container Toolkit Version"
+        }
+      },
+      "required": [
+        "driver_version",
+        "docker_version",
+        "compose_version",
+        "nvidia_container_toolkit_version",
+        "gpu_container_probe"
+      ],
+      "title": "RuntimeVersions",
+      "type": "object"
+    },
+    "SamplingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "temperature": {
+          "const": 0,
+          "default": 0,
+          "title": "Temperature",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seed"
+      ],
+      "title": "SamplingSpec",
+      "type": "object"
+    },
+    "Sha256Digest": {
+      "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
+      "title": "Sha256Digest",
+      "type": "string"
+    },
+    "StorageVolume": {
+      "additionalProperties": false,
+      "properties": {
+        "available_bytes": {
+          "maximum": 10000000000000000,
+          "minimum": 0,
+          "title": "Available Bytes",
+          "type": "integer"
+        },
+        "total_bytes": {
+          "maximum": 10000000000000000,
+          "minimum": 1,
+          "title": "Total Bytes",
+          "type": "integer"
+        },
+        "volume_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Volume Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "volume_id",
+        "total_bytes",
+        "available_bytes"
+      ],
+      "title": "StorageVolume",
+      "type": "object"
+    },
+    "SyntheticFixedDataset": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{2,63}-v[1-9][0-9]*$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "synthetic_fixed",
+          "default": "synthetic_fixed",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id"
+      ],
+      "title": "SyntheticFixedDataset",
+      "type": "object"
+    },
+    "TokenizerRef": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "revision": {
+          "$ref": "#/$defs/ModelRevision"
+        }
+      },
+      "required": [
+        "repository_id",
+        "revision"
+      ],
+      "title": "TokenizerRef",
+      "type": "object"
+    },
+    "WorkloadSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset": {
+          "discriminator": {
+            "mapping": {
+              "artifact": "#/$defs/ArtifactDataset",
+              "synthetic_fixed": "#/$defs/SyntheticFixedDataset"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SyntheticFixedDataset"
+            },
+            {
+              "$ref": "#/$defs/ArtifactDataset"
+            }
+          ],
+          "title": "Dataset"
+        },
+        "ignore_eos": {
+          "title": "Ignore Eos",
+          "type": "boolean"
+        },
+        "output_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "maximum": 50000000,
+          "minimum": 1,
+          "title": "Prompt Tokens",
+          "type": "integer"
+        },
+        "sampling": {
+          "$ref": "#/$defs/SamplingSpec"
+        },
+        "schema_version": {
+          "const": "workload/v1",
+          "default": "workload/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stream": {
+          "title": "Stream",
+          "type": "boolean"
+        },
+        "tokenizer": {
+          "$ref": "#/$defs/TokenizerRef"
+        }
+      },
+      "required": [
+        "dataset",
+        "tokenizer",
+        "prompt_tokens",
+        "output_tokens",
+        "stream",
+        "ignore_eos",
+        "sampling"
+      ],
+      "title": "WorkloadSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persisted Capacity Plan material with the Experiment budget binding.",
+  "properties": {
+    "adapter_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Adapter Version",
+      "type": "string"
+    },
+    "budget": {
+      "$ref": "#/$defs/ExecutionBudget"
+    },
+    "planning": {
+      "$ref": "#/$defs/CapacityPlanningSpecification"
+    },
+    "provider": {
+      "const": "llm-d-planner",
+      "default": "llm-d-planner",
+      "title": "Provider",
+      "type": "string"
+    },
+    "provider_profile_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Profile Version",
+      "type": "string"
+    },
+    "provider_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "capacity-execution-specification/v1",
+      "default": "capacity-execution-specification/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_version",
+    "adapter_version",
+    "provider_profile_version",
+    "budget",
+    "planning"
+  ],
+  "title": "CapacityExecutionSpecification",
+  "type": "object"
+}

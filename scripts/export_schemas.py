@@ -31,6 +31,7 @@ from autopilot.capabilities.benchmark.domain.models import (
     BenchmarkExecutionSpecification,
     BenchmarkResult,
 )
+from autopilot.capabilities.capacity.domain.models import CapacityExecutionSpecification
 from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
 from autopilot.capabilities.environment.domain.models import EnvironmentExecutionSpecification
 from autopilot.capabilities.evidence.domain.models import (
@@ -95,6 +96,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "artifact-ref-v1": ArtifactRef,
     "bearer-token-binding-v1": BearerTokenBinding,
     "benchmark-execution-specification-v1": BenchmarkExecutionSpecification,
+    "capacity-execution-specification-v1": CapacityExecutionSpecification,
     "benchmark-result-v1": BenchmarkResult,
     "benchmark-intent-v1": BenchmarkIntent,
     "champion-policy-v1": ChampionPolicy,

@@ -11,6 +11,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
 from autopilot.capabilities.benchmark.domain.models import BenchmarkExecutionSpecification
+from autopilot.capabilities.capacity.domain.models import (
+    CapacityExecutionSpecification,
+    CapacityPlanningSpecification,
+)
 from autopilot.capabilities.deployment.domain.models import DeploymentExecutionSpecification
 from autopilot.capabilities.environment.domain.models import (
     EnvironmentExecutionSpecification,
@@ -256,6 +260,7 @@ class _SessionDomainPlans(DomainPlanWriter):
     def _matches_kind(kind: PlanKind, specification: ExecutionSpecification) -> bool:
         expected_types: dict[PlanKind, type[ExecutionSpecification]] = {
             PlanKind.ENVIRONMENT: EnvironmentExecutionSpecification,
+            PlanKind.CAPACITY: CapacityExecutionSpecification,
             PlanKind.DEPLOYMENT: DeploymentExecutionSpecification,
             PlanKind.BENCHMARK: BenchmarkExecutionSpecification,
             PlanKind.OPTIMIZATION: OptimizationExecutionSpecification,
@@ -278,6 +283,17 @@ class _SessionDomainPlans(DomainPlanWriter):
                 provider_profile_version=specification.provider_profile_version,
                 budget=requirements.budget,
                 inspection=specification,
+            )
+        if isinstance(specification, CapacityPlanningSpecification):
+            if row.requirements_json is None:
+                raise ToolDispatchError(EXPERIMENT_REQUIREMENTS_MISSING)
+            requirements = RequirementSpec.model_validate(row.requirements_json)
+            return CapacityExecutionSpecification(
+                provider_version=specification.provider_version,
+                adapter_version=specification.adapter_version,
+                provider_profile_version=specification.provider_profile_version,
+                budget=requirements.budget,
+                planning=specification,
             )
         if isinstance(specification, ExecutionSpecification):
             return specification

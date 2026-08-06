@@ -228,6 +228,8 @@ class MvpToolDispatcher:
             arguments, CreateEnvironmentPlanInput
         ):
             plan_request = (PlanKind.ENVIRONMENT, RiskLevel.L1, arguments.specification)
+        elif tool_name == "create_capacity_plan" and isinstance(arguments, CreateCapacityPlanInput):
+            plan_request = (PlanKind.CAPACITY, RiskLevel.L1, arguments.specification)
         elif tool_name == "create_deployment_plan" and isinstance(
             arguments, CreateDeploymentPlanInput
         ):

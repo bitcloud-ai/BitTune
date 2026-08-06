@@ -265,7 +265,7 @@ uv run pytest tests/unit tests/contract
   JSON Schema。`create_experiment_plan` 已通过 Gateway 将认证主体、模型、Workload、SLO、预算和
   权限写入 PostgreSQL Experiment 投影与 Graph State；Agent Interrupt 已接入独立 Approval v2，
   同步和 SSE 恢复都会校验 Plan ID/Hash/Action，并在模型恢复失败时回到可重试的审批状态。
-  Graph/API/TUI Fake 测试已通过；公共 Schema 已由代码生成并增至 55 个；真实
+  Graph/API/TUI Fake 测试已通过；公共 Schema 已由代码生成并增至 56 个；真实
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
@@ -273,7 +273,7 @@ uv run pytest tests/unit tests/contract
   以及代码生成的 OpenAPI。
   M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境。
 - 领域 Plan 持久化和 Gateway Job Dispatcher 已完成：Environment、Deployment、Benchmark、
-  Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
+  Capacity、Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
   Approval v2；`start_*` 已完成幂等授权、Job 入队、审计和可重放响应。生产 Provider 未完成
   G0 验证时仍 fail-closed，不回退 Fake。
 - PostgreSQL Lease Worker 的 Claim、Fencing、授权/Plan/Approval 复核、状态迁移、进度、心跳、

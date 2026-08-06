@@ -14,6 +14,7 @@ from autopilot.domain.hardware import HardwarePassport
 from autopilot.domain.hashing import compute_content_hash
 from autopilot.domain.identifiers import ImageDigest, PlanHash, Sha256Digest
 from autopilot.domain.models import ModelProfile, ModelRef
+from autopilot.domain.plans import ExecutionSpecification
 from autopilot.domain.provenance import EstimatedProvenance
 from autopilot.domain.workloads import WorkloadSpec
 
@@ -22,6 +23,7 @@ INVALID_FIT = "capacity fit and generated candidates are inconsistent"
 INVALID_CANDIDATES = "fit capacity plans require the three fixed candidate profiles"
 INVALID_PLAN_HASH = "capacity plan hash does not match its immutable material"
 INVALID_ESTIMATE_PROVENANCE = "capacity estimate provenance does not match its provider binding"
+INVALID_EXECUTION_PROFILE = "capacity execution profile must match planning specification"
 
 
 class CapacityPlannerVersionProfile(StrictModel):
@@ -59,6 +61,26 @@ class CapacityPlanningSpecification(StrictModel):
     expected_concurrency: int = Field(ge=1, le=1_024)
     tensor_parallel_size: Literal[1] = 1
     trust_remote_code: Literal[False] = False
+
+
+class CapacityExecutionSpecification(ExecutionSpecification):
+    """Persisted Capacity Plan material with the Experiment budget binding."""
+
+    schema_version: Literal["capacity-execution-specification/v1"] = (
+        "capacity-execution-specification/v1"
+    )
+    provider: Literal["llm-d-planner"] = "llm-d-planner"
+    planning: CapacityPlanningSpecification
+
+    @model_validator(mode="after")
+    def validate_provider_binding(self) -> Self:
+        if (
+            self.provider_version != self.planning.provider_version
+            or self.adapter_version != self.planning.adapter_version
+            or self.provider_profile_version != self.planning.provider_profile_version
+        ):
+            raise ValueError(INVALID_EXECUTION_PROFILE)
+        return self
 
 
 class CapacityMemoryEstimate(StrictModel):
