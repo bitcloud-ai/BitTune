@@ -276,10 +276,12 @@ uv run pytest tests/unit tests/contract
   Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
   Approval v2；`start_*` 已完成幂等授权、Job 入队、审计和可重放响应。生产 Provider 未完成
   G0 验证时仍 fail-closed，不回退 Fake。
-- PostgreSQL Lease Worker 和 M6 REST 执行路径仍未贯通；下一阶段只实现一个复用现有
-  Lease Queue、Capability Port/Adapter 和 Host Runner 的 Worker，不引入 Celery、第二套队列
-  或新的 Agent loop。
+- PostgreSQL Lease Worker 的 Claim、Fencing、授权/Plan/Approval 复核、状态迁移、进度、心跳、
+  取消和 fail-closed Handler 边界已落地，REST 已注入 PostgreSQL Job 查询/取消 Store；真实
+  Capability Handler、Worker 进程装配和 M6 Provider 执行仍待 G0 后完成，不得把队列入队
+  描述为已执行。
 
-下一执行顺序固定为：Lease Worker 执行前复核授权 → Capability Service/Adapter → Host Runner
-→ Job/Artifact/Graph 对账 → `cancel_*` Job Control → REST/Agent/Textual 主路径验收。未来多领域
-子 Agent 只按 ADR-017 的 supervisor-as-tool 边界扩展，不改变上述确定性执行链。
+下一执行顺序固定为：固定 G0 Provider Profile → Capability Handler/Worker 进程装配 →
+Host Runner → Job/Artifact/Graph 对账 → REST/Agent/Textual 主路径验收。`cancel_*` 已是
+幂等 Job Control，不创建第二个 Job。未来多领域子 Agent 只按 ADR-017 的 supervisor-as-tool
+边界扩展，不改变上述确定性执行链。
