@@ -43,6 +43,14 @@ Secret 文件、数据库迁移以及备份恢复见 [deploy/README.md](deploy/R
 
 ## CLI 交互
 
+MVP 的主交互是持续会话，而不是只能从头提交一次完整流程。官方 LangChain Agent harness 驱动模型-工具循环，Click 负责命令入口，Textual 负责终端布局、输入、Command Palette、异步 Worker 和流式事件渲染：
+
+```bash
+uv run autopilot chat
+```
+
+会话中直接输入自然语言即可，支持 `/approve`、`/reject`、`/status`、`/cancel`、`/new` 和 `/quit`；相同动作也注册在 Textual Command Palette。同一会话持久化到 PostgreSQL，重启 CLI 或 API 后可继续。Agent 只会看到经过 Tool Gateway、OPA 和当前阶段校验的 Autopilot 领域工具，不具备任意 Shell、Docker、Python 或文件系统能力。
+
 项目提供基于开源 Click 框架的 `autopilot` 命令。CLI 是 REST/SSE 客户端，不复制服务端
 Graph、审批或 Provider 逻辑。先设置 API 地址和 Bearer Token；Token 不支持命令行参数，
 未设置环境变量时会通过交互式输入读取：
@@ -57,6 +65,8 @@ uv run autopilot events <experiment_id>
 uv run autopilot resume <experiment_id> --decision approved --comment '人工确认部署计划'
 uv run autopilot cancel <experiment_id>
 ```
+
+`create/status/events/resume/cancel` 是兼容旧控制面客户端的单次 REST 命令；新的 Agent 主入口是上面的 `autopilot chat`，不会把用户限制在固定流程命令中。
 
 `create` 返回的 `experiment_id` 用于后续查询、恢复和取消。长时间操作通过服务端 Job
 异步执行，`events` 只输出结构化 SSE；真实 GPU Provider 未配置时服务端按契约拒绝执行，

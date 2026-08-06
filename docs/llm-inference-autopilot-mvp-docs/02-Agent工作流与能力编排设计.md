@@ -549,3 +549,50 @@ LLM 不能生成最终性能数值，只能引用已有 Artifact。
 - https://docs.langchain.com/oss/python/langgraph/interrupts
 - https://docs.langchain.com/oss/python/langgraph/use-subgraphs
 - https://openai.github.io/openai-agents-python/human_in_the_loop/
+
+---
+
+## 16. M8 Agent session contract (frozen)
+
+M8 uses the official LangChain Agent harness for the user-facing session. The fixed phase workflow is no longer the conversation loop:
+
+```text
+langchain.agents.create_agent
+  -> messages + thread_id
+  -> model
+  -> visible domain tool call
+  -> Tool Gateway
+  -> tool result
+  -> model
+  -> no tool call: finish the turn
+```
+
+The implementation contract is fixed as follows:
+
+- `create_agent` is the only Agent loop; LangGraph remains its persistence/runtime layer.
+- `PostgresSaver` persists the conversation and Interrupt for one `thread_id` (the Experiment ID).
+- Middleware resolves the Tool Gateway visibility snapshot before every model call and sends only tools allowed by phase, role, hardware, Provider, Feature Flag, and OPA.
+- Every LangChain `StructuredTool` is an adapter that creates a typed `ToolCallRequest` and calls `ToolGateway.invoke`; it never calls a Capability, Docker, Runner, or Provider directly.
+- `HumanInTheLoopMiddleware` creates the official Interrupt for L2 tools. Only structured `approve` or `reject` decisions are accepted; editing an approved Plan requires a new Plan and approval.
+- L0 reads execute automatically, L2 execution is authorized by Gateway/OPA and independent human approval, and L3 actions are never registered.
+- Long-running domain actions keep the existing `start -> job_id -> status/result/cancel` contract. The Agent selects and explains actions but never blocks an HTTP request on a benchmark or optimization.
+
+The CLI uses Click as the installed entry point and Textual as the complete TUI framework.
+`autopilot chat` consumes the FastAPI SSE session API and supports streaming assistant tokens,
+tool calls, tool results, Interrupts, Markdown, session status, cancellation, and Textual's built-in
+Command Palette. Slash commands are `/approve`, `/reject`, `/status`, `/cancel`, `/new`, and
+`/quit`. The TUI only calls the API and never imports Graph, Gateway, Capability, Provider, Docker,
+Runner, Python execution, Shell, or filesystem tools.
+
+The Agent stream uses the official LangChain/LangGraph v2 format with `messages` and `updates`
+modes. `HumanInTheLoopMiddleware` pauses an L2 Agent Tool Call, but it does not replace Approval
+v2: execution still requires a different human admin, matching Experiment, Plan ID, Plan Hash, and
+Action. The requester cannot approve their own action through the TUI.
+
+MVP remains a single Agent. A future multi-domain architecture may add one central supervisor only
+after a new ADR. Each domain Agent will be wrapped as a supervisor Tool and will still receive only
+Gateway-backed domain tools. No Provider or Host Runner becomes directly visible to a subagent.
+
+The implementation must not use the deprecated `langgraph.prebuilt.create_react_agent`, Deep Agents Shell/Filesystem/Subagent features, a hand-written ReAct loop, a generic Plugin System, or a second Workflow Engine.
+
+The frozen TUI and streaming decision is recorded in `docs/adr/ADR-017-agent-tui-and-streaming.md`.

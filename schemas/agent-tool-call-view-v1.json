@@ -1,0 +1,42 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "ToolName": {
+      "description": "Agent-visible tool name restricted to the public action vocabulary.",
+      "title": "ToolName",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Tool-call projection suitable for CLI event rendering.",
+  "properties": {
+    "arguments": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Arguments",
+      "type": "object"
+    },
+    "schema_version": {
+      "default": "agent-tool-call-view/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tool_call_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Tool Call Id",
+      "type": "string"
+    },
+    "tool_name": {
+      "$ref": "#/$defs/ToolName"
+    }
+  },
+  "required": [
+    "tool_name",
+    "arguments",
+    "tool_call_id"
+  ],
+  "title": "AgentToolCallView",
+  "type": "object"
+}

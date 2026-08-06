@@ -4,6 +4,58 @@
 > 目标环境：单台 Linux 主机、单张 NVIDIA RTX 5090 32 GB、Docker  
 > 开发环境：Windows 仅执行不占用 GPU 的单元、Contract 和可用的集成测试
 
+## M8 Agent 重构决策（当前执行基线）
+
+M8 的主交付由官方 LangChain `create_agent` 实现持续会话，不再以固定阶段 DAG 驱动用户交互。LangGraph 仍作为底层状态运行时，PostgresSaver 以 `thread_id = experiment_id` 持久化消息和 Interrupt。所有 Agent 工具通过既有 Tool Registry/Tool Gateway，动态可见性由 Middleware 在每次模型调用前解析，L2 由官方 `HumanInTheLoopMiddleware` 触发审批，L3 永远不可见。
+
+交互入口按 ADR-017 确定为：
+
+```text
+autopilot chat -> Click -> Textual -> FastAPI SSE -> create_agent stream v2
+```
+
+不新增自定义 Agent 循环、通用 Plugin System、任意 Shell 工具或 Web UI。Textual 只负责终端交互，
+不导入 Graph、Gateway、Capability、Provider 或 Runner。原有领域能力、异步 Job、OPA、Approval、
+Runner、MLflow 和 Evidence 保持不变，Agent 只负责自然语言理解、工具选择、结果解释和审批请求。
+
+### M8.0：Agent/TUI 调研与冻结决策
+
+- 官方 Agent Runtime：`langchain.agents.create_agent`、Checkpointer、Middleware、
+  `HumanInTheLoopMiddleware` 和 v2 streaming；
+- Python TUI：Textual，使用内建 Worker、Command Palette、Markdown、Input 和 Pilot；
+- Click 保留为命令入口及非交互自动化命令，删除 `prompt_toolkit`；
+- 当前只实现一个 Agent。未来只有在多个独立领域成熟后，才按 ADR 新增中央 supervisor，并把领域
+  Agent 包装为受控 Tool；
+- Claude Code 未公开可核实的内部 TUI 框架，不基于猜测复制实现；Codex/Ratatui、Gemini/Ink 和
+  Toad/Textual 共同证明应复用成熟 TUI 框架。
+
+验收：ADR-017、Agent 设计、开发路线和依赖选择一致，不存在第二套 Agent loop、TUI 框架或包管理器。
+
+### M8.1：领域 Tool 装配（本次执行项）
+
+M8.1 只完成已有能力包到标准 Agent Runtime 的装配，不改变能力包的 Provider 边界：
+
+- 根据 `capabilities/*/manifest.yaml` 注册固定的窄 Tool 和 Pydantic 输入 Schema；
+- `StructuredTool` 只负责把输入转换成 `ToolCallRequest`，执行仍由既有 `ToolGateway` 完成；
+- 增加只读 `get_mvp_capabilities_result`，返回固定 MVP 范围、Provider 和当前可用性，不执行外部操作；
+- 生产装配使用 PostgreSQL 的 Experiment、Tool Set、Plan、Approval、Idempotency 和 Audit Port；
+- 没有 G0 验证的 Provider Profile、OPA 或 Runner 时，相关工具后端默认拒绝，不回退到 Fake Adapter；
+- 资源预留和异步 Job 仍由现有 Gateway/Job Port 负责，M8.1 不新建 Worker 或第二套队列。
+
+验收：Agent 在 `autopilot chat` 中只能看到当前阶段和策略允许的已注册领域 Tool；能力查询可以通过 Gateway 返回；所有部署、压测、调优和删除类动作在 Provider/Runner 未固定时得到分类拒绝并留下审计事件。
+
+### M8.2：实时会话与 Textual TUI
+
+- API 使用 LangChain/LangGraph v2 stream 输出 Token、Tool Call、Tool Result、Interrupt、错误和完成事件；
+- `autopilot chat` 使用 Textual 消费 SSE，提供滚动消息、Markdown、状态栏、Command Palette、
+  `/approve`、`/reject`、`/status`、`/cancel`、`/new` 和 `/quit`；
+- L2 Agent Interrupt 与 ADR-016 独立管理员 Approval v2 分层处理，operator 不能通过 TUI 自审批；
+- TUI 的网络调用使用 Textual Worker，界面线程不被模型或网络请求阻塞；
+- 使用 Textual Pilot 覆盖消息提交、命令执行和 Interrupt 展示，不建立第二套 UI 测试框架。
+
+验收：终端能连续多轮对话并实时显示 Agent/Tool/Interrupt 事件；API、TUI 或网络错误不会丢失已持久化
+会话；TUI 不包含任何领域执行逻辑。
+
 ## 1. 完成标准
 
 MVP 完成必须同时满足：
@@ -205,15 +257,20 @@ uv run pytest tests/unit tests/contract
   Champion/Fallback 选择及 Evidence Bundle manifest/artifact 已落地；Fake 单元路径和
   Optuna Contract Test 已通过。复测状态使用 Job progress 结构化快照，真实 PostgreSQL、
   MLflow 线上和 GPU 验收仍待对应环境。
-- M8 已完成非 GPU 实现：单主 LangGraph、结构化 State、官方 InMemorySaver 测试恢复、
+- M8 Agent/TUI 已完成非 GPU 实现：单主 LangGraph、结构化 State、官方 InMemorySaver 测试恢复、
   官方 PostgresSaver 生产生命周期、两处 Plan Hash 绑定的 Interrupt、远程
   OpenAI-compatible ModelProvider、FastAPI REST/SSE/OpenAPI 路由、PostgreSQL 实验与
   Deployment 投影、Artifact 查询、Bearer Token 配置装配、fail-closed Provider/外部状态
-  默认值，以及 43 个由代码生成的公共 JSON Schema。Graph/API Fake 测试已通过；真实
+  默认值、LangChain `create_agent`、v2 Streaming、Textual TUI，以及 49 个由代码生成的公共
+  JSON Schema。Graph/API/TUI Fake 测试已通过；真实
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
   配置模板、迁移入口、备份恢复文档、基于 Click 的 REST/SSE CLI、Compose 安全契约测试，
   以及代码生成的 OpenAPI。
-  M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境；
-  未创建虚假的 Worker 进程，真实 Provider Profile 固定后再接入 PostgreSQL Lease Queue。
+  M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境。
+- 整体 MVP 尚未完成：`create_experiment_plan`、领域 Plan 持久化、Gateway Job Dispatcher、
+  PostgreSQL Lease Worker 和 M6 REST 执行路径尚未贯通；生产 Dispatcher 当前只执行只读能力查询，
+  其余动作分类拒绝。不得将当前状态描述为完整闭环。
+- 未创建虚假的 Worker 进程。后续只把已实现的 Capability Service/Adapter 接入既有 PostgreSQL
+  Lease Queue 和 Host Runner；真实 Provider Profile 未固定时继续 fail-closed，不回退 Fake。

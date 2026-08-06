@@ -11,15 +11,19 @@ from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 
 from autopilot.api.app import (
+    AgentSessionView,
     ApiDependencies,
     ArtifactDownloadMeta,
     CreateExperimentRequest,
+    CreateSessionRequest,
     ExperimentMessageRequest,
     ExperimentView,
     GraphRunView,
     JobView,
     PlanDecisionRequest,
     ResumeRequest,
+    SessionMessageRequest,
+    SessionResumeRequest,
     create_app,
 )
 from autopilot.api.repositories import DeploymentProjection, InMemoryExperimentStore, PlanProjection
@@ -55,6 +59,7 @@ from autopilot.gateway.models import (
     ToolDefinition,
     ToolSetSnapshot,
 )
+from autopilot.graph.agent import AgentMessageView, AgentToolCallView
 from autopilot.graph.model_provider import BenchmarkIntent, FailureAnalysis, ReportDraft
 from autopilot.graph.runtime_defaults import UnavailableModelProvider, UnavailableReconciler
 from autopilot.graph.state import GraphStateSnapshot
@@ -62,8 +67,12 @@ from autopilot.graph.workflow import GraphDependencies, UnavailableGraphOperatio
 from autopilot.policy.models import PolicyDecision, PolicyInput
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
+    "agent-message-view-v1": AgentMessageView,
+    "agent-tool-call-view-v1": AgentToolCallView,
+    "api-agent-session-view-v1": AgentSessionView,
     "api-artifact-download-meta-v1": ArtifactDownloadMeta,
     "api-create-experiment-request-v1": CreateExperimentRequest,
+    "api-create-session-request-v1": CreateSessionRequest,
     "api-deployment-projection-v1": DeploymentProjection,
     "api-experiment-message-request-v1": ExperimentMessageRequest,
     "api-experiment-view-v1": ExperimentView,
@@ -72,6 +81,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "api-plan-decision-request-v1": PlanDecisionRequest,
     "api-plan-projection-v1": PlanProjection,
     "api-resume-request-v1": ResumeRequest,
+    "api-session-message-request-v1": SessionMessageRequest,
+    "api-session-resume-request-v1": SessionResumeRequest,
     "approval-v2": ApprovalRecord,
     "artifact-ref-v1": ArtifactRef,
     "bearer-token-binding-v1": BearerTokenBinding,

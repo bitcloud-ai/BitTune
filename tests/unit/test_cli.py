@@ -50,11 +50,94 @@ class FakeCliClient:
         payload: dict[str, object] | None = None,
     ) -> object:
         self.requests.append((method, path, payload))
+        if path == "/api/v1/sessions":
+            return {
+                "experiment_id": "exp_" + "1" * 32,
+                "messages": [{"role": "assistant", "content": "ready"}],
+                "tool_calls": [],
+                "interrupted": False,
+            }
+        if path.startswith("/api/v1/sessions/"):
+            return {
+                "experiment_id": "exp_" + "1" * 32,
+                "messages": [{"role": "assistant", "content": "ready"}],
+                "tool_calls": [],
+                "interrupted": False,
+            }
         return {"method": method, "path": path}
 
     def stream_events(self, experiment_id: str) -> None:
         self.streamed.append(experiment_id)
         click.echo("event: stream.end")
+
+    def create_session(self, message: str) -> dict[str, object]:
+        return self.request_json(
+            "POST",
+            "/api/v1/sessions",
+            payload={"schema_version": "create-session-request/v1", "message": message},
+        )  # type: ignore[return-value]
+
+    def send_session_message(self, session_id: str, message: str) -> dict[str, object]:
+        return self.request_json(
+            "POST",
+            f"/api/v1/sessions/{session_id}/messages",
+            payload={"schema_version": "session-message-request/v1", "message": message},
+        )  # type: ignore[return-value]
+
+    def resume_session(
+        self,
+        session_id: str,
+        decision: str,
+        message: str | None = None,
+    ) -> dict[str, object]:
+        return self.request_json(
+            "POST",
+            f"/api/v1/sessions/{session_id}/resume",
+            payload={
+                "schema_version": "session-resume-request/v1",
+                "decision": decision,
+                "message": message,
+            },
+        )  # type: ignore[return-value]
+
+    def get_session(self, session_id: str) -> dict[str, object]:
+        return self.request_json("GET", f"/api/v1/sessions/{session_id}")  # type: ignore[return-value]
+
+
+class FakeTuiApiClient:
+    instances: ClassVar[list[FakeTuiApiClient]] = []
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        token: str,
+        timeout_seconds: float,
+    ) -> None:
+        self.base_url = base_url
+        self.token = token
+        self.timeout_seconds = timeout_seconds
+        self.instances.append(self)
+
+
+class FakeAutopilotApp:
+    instances: ClassVar[list[FakeAutopilotApp]] = []
+
+    def __init__(
+        self,
+        *,
+        client: FakeTuiApiClient,
+        base_url: str,
+        session_id: str | None,
+    ) -> None:
+        self.client = client
+        self.base_url = base_url
+        self.session_id = session_id
+        self.ran = False
+        self.instances.append(self)
+
+    def run(self) -> None:
+        self.ran = True
 
 
 def _patch_fake_client(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -186,3 +269,27 @@ def test_api_client_streams_sse_lines(capsys: pytest.CaptureFixture[str]) -> Non
         client.stream_events("exp_123")
 
     assert "event: graph.state" in capsys.readouterr().out
+
+
+def test_chat_launches_textual_with_the_configured_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTOPILOT_API_TOKEN", TOKEN)
+    FakeTuiApiClient.instances.clear()
+    FakeAutopilotApp.instances.clear()
+    monkeypatch.setattr(cli_module, "TuiApiClient", FakeTuiApiClient)
+    monkeypatch.setattr(cli_module, "AutopilotApp", FakeAutopilotApp)
+
+    result = CliRunner().invoke(
+        cli,
+        ["--base-url", "http://control-plane", "chat", "--session-id", "exp_123"],
+    )
+
+    assert result.exit_code == 0
+    client = FakeTuiApiClient.instances[0]
+    app = FakeAutopilotApp.instances[0]
+    assert client.base_url == "http://control-plane"
+    assert client.token == TOKEN
+    assert app.client is client
+    assert app.session_id == "exp_123"
+    assert app.ran is True

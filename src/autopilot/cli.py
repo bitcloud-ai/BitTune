@@ -1,4 +1,4 @@
-"""Click-based command line client for the Autopilot REST/SSE control plane."""
+"""Click commands and Textual entry point for the Autopilot control plane."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from typing import cast
 import click
 import httpx
 
+from autopilot.tui import AutopilotApp, TuiApiClient
+
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 
@@ -24,7 +26,7 @@ class CliConfig:
 
 
 class ApiClient:
-    """Small typed transport client; workflow and authorization remain server-side."""
+    """Synchronous client used by non-interactive automation commands."""
 
     def __init__(
         self,
@@ -124,10 +126,7 @@ def _print_json(value: object) -> None:
 def cli(ctx: click.Context, base_url: str, timeout_seconds: float) -> None:
     """Interact with the auditable Autopilot control plane."""
     ctx.ensure_object(dict)
-    ctx.obj["config"] = CliConfig(
-        base_url=base_url,
-        timeout_seconds=timeout_seconds,
-    )
+    ctx.obj["config"] = CliConfig(base_url=base_url, timeout_seconds=timeout_seconds)
 
 
 def _config(ctx: click.Context) -> CliConfig:
@@ -146,10 +145,7 @@ def create_experiment(ctx: click.Context, message: str) -> None:
         result = client.request_json(
             "POST",
             "/api/v1/experiments",
-            payload={
-                "schema_version": "create-experiment-request/v1",
-                "message": message,
-            },
+            payload={"schema_version": "create-experiment-request/v1", "message": message},
         )
     _print_json(result)
 
@@ -223,6 +219,24 @@ def cancel_experiment(ctx: click.Context, experiment_id: str) -> None:
     ) as client:
         result = client.request_json("POST", f"/api/v1/experiments/{experiment_id}/cancel")
     _print_json(result)
+
+
+@cli.command("chat")
+@click.option(
+    "--session-id",
+    default=None,
+    help="Resume an existing Agent session instead of creating one on the first message.",
+)
+@click.pass_context
+def chat(ctx: click.Context, session_id: str | None) -> None:
+    """Start the Textual continuous-conversation interface."""
+    config = _config(ctx)
+    client = TuiApiClient(
+        base_url=config.base_url,
+        token=_token(),
+        timeout_seconds=config.timeout_seconds,
+    )
+    AutopilotApp(client=client, base_url=config.base_url, session_id=session_id).run()
 
 
 def main() -> None:

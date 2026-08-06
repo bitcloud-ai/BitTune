@@ -1,10 +1,10 @@
 """FastAPI REST/SSE presentation boundary for the MVP control plane."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Annotated, Self, cast
+from typing import Annotated, Literal, Self, cast
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -38,6 +38,15 @@ from autopilot.domain.identities import HumanSubject
 from autopilot.domain.jobs import JobRecord
 from autopilot.gateway.approval_ports import DecideApprovalRequest
 from autopilot.gateway.authentication import AuthenticationError, BearerTokenAuthenticator
+from autopilot.gateway.models import GatewayEnvironment
+from autopilot.graph.agent import (
+    AgentMessageView,
+    AgentRunResult,
+    AgentRuntimeError,
+    AgentSessionPort,
+    AgentStreamEvent,
+    AgentToolCallView,
+)
 from autopilot.graph.state import GraphStateSnapshot, new_state
 from autopilot.graph.workflow import GraphRunResult, GraphRuntime
 from autopilot.jobs.ports import JobRepository
@@ -46,6 +55,22 @@ from autopilot.jobs.ports import JobRepository
 class CreateExperimentRequest(StrictModel):
     schema_version: str = "create-experiment-request/v1"
     message: LongText
+
+
+class CreateSessionRequest(StrictModel):
+    schema_version: str = "create-session-request/v1"
+    message: LongText | None = None
+
+
+class SessionMessageRequest(StrictModel):
+    schema_version: str = "session-message-request/v1"
+    message: LongText
+
+
+class SessionResumeRequest(StrictModel):
+    schema_version: str = "session-resume-request/v1"
+    decision: Literal["approve", "reject"]
+    message: LongText | None = None
 
 
 class ExperimentMessageRequest(StrictModel):
@@ -102,6 +127,20 @@ class GraphRunView(StrictModel):
     interrupt: dict[str, JsonValue] | None = None
 
 
+class AgentSessionView(StrictModel):
+    schema_version: str = "agent-session-view/v1"
+    experiment_id: ExperimentId
+    thread_id: NonEmptyStr
+    status: ExperimentStatus
+    phase: ExperimentPhase
+    messages: tuple[AgentMessageView, ...]
+    tool_calls: tuple[AgentToolCallView, ...] = ()
+    interrupted: bool
+    interrupt: dict[str, JsonValue] | None = None
+    tool_set_id: NonEmptyStr | None = None
+    tool_set_version: NonEmptyStr | None = None
+
+
 class JobView(StrictModel):
     schema_version: str = "job-view/v1"
     job: JobRecord
@@ -119,6 +158,8 @@ class ApiDependencies:
     authenticator: BearerTokenAuthenticator
     experiments: ExperimentStore
     graph: GraphRuntime
+    agent: AgentSessionPort | None = None
+    agent_environment: Callable[[ExperimentId, HumanSubject], GatewayEnvironment] | None = None
     plans: PlanStore | None = None
     jobs: JobRepository | None = None
     approvals: ApprovalStore | None = None
@@ -183,6 +224,105 @@ def _run_view(deps: ApiDependencies, result: GraphRunResult) -> GraphRunView:
     )
 
 
+def _default_agent_environment(
+    experiment_id: ExperimentId,
+    subject: HumanSubject,
+) -> GatewayEnvironment:
+    """Build trusted context; production may replace capability sets from its Collector."""
+    return GatewayEnvironment(experiment_id=experiment_id, subject=subject)
+
+
+def _agent_view(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+    result: AgentRunResult,
+) -> AgentSessionView:
+    record = deps.experiments.get(experiment_id)
+    if record is None:
+        raise _api_error(404, "EXPERIMENT_NOT_FOUND", "Experiment does not exist")
+    projection = dict(record.graph_state)
+    projection["status"] = (
+        ExperimentStatus.WAITING_APPROVAL.value
+        if result.interrupted
+        else ExperimentStatus.ACTIVE.value
+    )
+    if result.interrupt_payload is not None:
+        current_phase = projection.get("phase", record.phase.value)
+        if current_phase != ExperimentPhase.APPROVAL.value:
+            projection["approval_resume_phase"] = current_phase
+        projection["phase"] = ExperimentPhase.APPROVAL.value
+        projection["approval_request"] = result.interrupt_payload
+    else:
+        projection.pop("approval_request", None)
+        resume_phase = projection.pop("approval_resume_phase", None)
+        if isinstance(resume_phase, str):
+            projection["phase"] = resume_phase
+    record = deps.experiments.save_state(
+        experiment_id,
+        projection,
+    )
+    return AgentSessionView(
+        experiment_id=experiment_id,
+        thread_id=str(experiment_id),
+        status=record.status,
+        phase=record.phase,
+        messages=result.messages,
+        tool_calls=result.tool_calls,
+        interrupted=result.interrupted,
+        interrupt=result.interrupt_payload,
+        tool_set_id=result.tool_set_id,
+        tool_set_version=result.tool_set_version,
+    )
+
+
+def _restore_session_phase(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+    record: ExperimentRecord,
+) -> ExperimentRecord:
+    """Restore the pre-Interrupt phase before Gateway visibility is resolved."""
+    resume_phase = record.graph_state.get("approval_resume_phase")
+    if not isinstance(resume_phase, str) or resume_phase == ExperimentPhase.APPROVAL.value:
+        return record
+    try:
+        phase = ExperimentPhase(resume_phase)
+    except ValueError as error:
+        raise _api_error(
+            409,
+            "SESSION_PHASE_INVALID",
+            "Session approval phase is invalid",
+        ) from error
+    state = dict(record.graph_state)
+    state["phase"] = phase.value
+    state["status"] = ExperimentStatus.ACTIVE.value
+    return deps.experiments.save_state(experiment_id, state)
+
+
+def _stream_event_line(event_type: str, payload: Mapping[str, JsonValue]) -> str:
+    return (
+        f"event: {event_type}\n"
+        f"data: {json.dumps(dict(payload), ensure_ascii=False, sort_keys=True)}\n\n"
+    )
+
+
+def _agent_event_stream(
+    deps: ApiDependencies,
+    experiment_id: ExperimentId,
+    events: Iterator[AgentStreamEvent],
+) -> Iterator[str]:
+    """Serialize Agent v2 events and persist the final session projection."""
+    try:
+        for event in events:
+            payload = dict(event.payload)
+            if event.result is not None:
+                session = _agent_view(deps, experiment_id, event.result)
+                payload["session"] = cast(dict[str, JsonValue], session.model_dump(mode="json"))
+            yield _stream_event_line(event.event_type, payload)
+    except AgentRuntimeError as error:
+        yield _stream_event_line("run.error", {"code": error.code})
+    yield _stream_event_line("stream.end", {})
+
+
 def create_app(
     dependencies: ApiDependencies,
     *,
@@ -210,6 +350,233 @@ def create_app(
     @app.get("/healthz", include_in_schema=True)
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    def require_agent() -> AgentSessionPort:
+        if dependencies.agent is None:
+            raise _api_error(503, "AGENT_UNAVAILABLE", "Agent runtime is not configured")
+        return dependencies.agent
+
+    def agent_environment(
+        experiment_id: ExperimentId,
+        subject: HumanSubject,
+    ) -> GatewayEnvironment:
+        factory = dependencies.agent_environment or _default_agent_environment
+        return factory(experiment_id, subject)
+
+    @app.post("/api/v1/sessions", response_model=AgentSessionView, status_code=201)
+    def create_session(
+        body: CreateSessionRequest,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> AgentSessionView:
+        agent = require_agent()
+        experiment_id = ExperimentId.new()
+        state = new_state(
+            experiment_id=experiment_id,
+            thread_id=str(experiment_id),
+            message=body.message,
+        )
+        record = ExperimentRecord(
+            experiment_id=experiment_id,
+            created_by=subject.user_id,
+            status=ExperimentStatus.ACTIVE,
+            phase=ExperimentPhase.REQUIREMENTS,
+            graph_state=cast(dict[str, JsonValue], state),
+            created_at=utc_now(),
+            updated_at=utc_now(),
+        )
+        try:
+            dependencies.experiments.create(record)
+            if body.message is None:
+                return AgentSessionView(
+                    experiment_id=experiment_id,
+                    thread_id=str(experiment_id),
+                    status=record.status,
+                    phase=record.phase,
+                    messages=(),
+                    interrupted=False,
+                )
+            result = agent.send(
+                experiment_id=experiment_id,
+                message=body.message,
+                environment=agent_environment(experiment_id, subject),
+            )
+            return _agent_view(dependencies, experiment_id, result)
+        except ValueError as error:
+            raise _api_error(422, "VALIDATION_ERROR", str(error)) from error
+        except AgentRuntimeError as error:
+            raise _api_error(
+                503, "AGENT_TURN_FAILED", "Agent turn could not be completed"
+            ) from error
+
+    @app.get("/api/v1/sessions/{experiment_id}", response_model=AgentSessionView)
+    def get_session(
+        experiment_id: str,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> AgentSessionView:
+        agent = require_agent()
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        messages = agent.state(experiment_id=typed_experiment_id)
+        interrupt_payload = record.graph_state.get("approval_request")
+        return AgentSessionView(
+            experiment_id=typed_experiment_id,
+            thread_id=str(typed_experiment_id),
+            status=record.status,
+            phase=record.phase,
+            messages=messages,
+            interrupted=record.status is ExperimentStatus.WAITING_APPROVAL,
+            interrupt=(interrupt_payload if isinstance(interrupt_payload, dict) else None),
+        )
+
+    @app.get("/api/v1/sessions/{experiment_id}/events")
+    def session_events(
+        experiment_id: str,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> StreamingResponse:
+        agent = require_agent()
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        messages = agent.state(experiment_id=typed_experiment_id)
+        interrupt_payload = record.graph_state.get("approval_request")
+
+        def stream() -> Iterator[str]:
+            for message in messages:
+                payload = json.dumps(message.model_dump(mode="json"), ensure_ascii=False)
+                yield f"event: agent.message\ndata: {payload}\n\n"
+            if isinstance(interrupt_payload, dict):
+                payload = json.dumps(interrupt_payload, ensure_ascii=False)
+                yield f"event: agent.interrupt\ndata: {payload}\n\n"
+            yield "event: stream.end\ndata: {}\n\n"
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
+
+    @app.post(
+        "/api/v1/sessions/{experiment_id}/messages",
+        response_model=AgentSessionView,
+    )
+    def send_session_message(
+        experiment_id: str,
+        body: SessionMessageRequest,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> AgentSessionView:
+        agent = require_agent()
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        if record.status in {ExperimentStatus.COMPLETED, ExperimentStatus.CANCELLED}:
+            raise _api_error(409, "SESSION_TERMINAL", "Session is already terminal")
+        if record.status is ExperimentStatus.WAITING_APPROVAL:
+            raise _api_error(
+                409, "SESSION_WAITING_APPROVAL", "Session requires an approval decision"
+            )
+        try:
+            result = agent.send(
+                experiment_id=typed_experiment_id,
+                message=body.message,
+                environment=agent_environment(typed_experiment_id, subject),
+            )
+            return _agent_view(dependencies, typed_experiment_id, result)
+        except RuntimeError as error:
+            raise _api_error(
+                409, "AGENT_TURN_FAILED", "Agent turn could not be completed"
+            ) from error
+
+    @app.post(
+        "/api/v1/sessions/{experiment_id}/resume",
+        response_model=AgentSessionView,
+    )
+    def resume_session(
+        experiment_id: str,
+        body: SessionResumeRequest,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> AgentSessionView:
+        agent = require_agent()
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        if record.status is not ExperimentStatus.WAITING_APPROVAL:
+            raise _api_error(409, "SESSION_NOT_INTERRUPTED", "Session has no pending approval")
+        _require_admin(subject)
+        if subject.user_id == record.created_by:
+            raise _api_error(
+                403,
+                "APPROVAL_SELF_DECISION",
+                "Requester cannot approve its own session",
+            )
+        record = _restore_session_phase(dependencies, typed_experiment_id, record)
+        try:
+            result = agent.resume(
+                experiment_id=typed_experiment_id,
+                approved=body.decision == "approve",
+                message=body.message,
+                environment=agent_environment(typed_experiment_id, subject),
+            )
+            return _agent_view(dependencies, typed_experiment_id, result)
+        except RuntimeError as error:
+            raise _api_error(
+                409, "AGENT_RESUME_FAILED", "Agent Interrupt could not be resumed"
+            ) from error
+
+    @app.post("/api/v1/sessions/{experiment_id}/messages/stream")
+    def stream_session_message(
+        experiment_id: str,
+        body: SessionMessageRequest,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> StreamingResponse:
+        agent = require_agent()
+        stream_send = getattr(agent, "stream_send", None)
+        if not callable(stream_send):
+            raise _api_error(503, "AGENT_STREAM_UNAVAILABLE", "Agent streaming is not configured")
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        if record.status in {ExperimentStatus.COMPLETED, ExperimentStatus.CANCELLED}:
+            raise _api_error(409, "SESSION_TERMINAL", "Session is already terminal")
+        if record.status is ExperimentStatus.WAITING_APPROVAL:
+            raise _api_error(
+                409,
+                "SESSION_WAITING_APPROVAL",
+                "Session requires an approval decision",
+            )
+        events = stream_send(
+            experiment_id=typed_experiment_id,
+            message=body.message,
+            environment=agent_environment(typed_experiment_id, subject),
+        )
+        return StreamingResponse(
+            _agent_event_stream(dependencies, typed_experiment_id, events),
+            media_type="text/event-stream",
+        )
+
+    @app.post("/api/v1/sessions/{experiment_id}/resume/stream")
+    def stream_session_resume(
+        experiment_id: str,
+        body: SessionResumeRequest,
+        subject: Annotated[HumanSubject, Depends(authenticated)],
+    ) -> StreamingResponse:
+        agent = require_agent()
+        stream_resume = getattr(agent, "stream_resume", None)
+        if not callable(stream_resume):
+            raise _api_error(503, "AGENT_STREAM_UNAVAILABLE", "Agent streaming is not configured")
+        typed_experiment_id = _parse_stable_id(ExperimentId, experiment_id)
+        record = experiment_or_404(typed_experiment_id)
+        if record.status is not ExperimentStatus.WAITING_APPROVAL:
+            raise _api_error(409, "SESSION_NOT_INTERRUPTED", "Session has no pending approval")
+        _require_admin(subject)
+        if subject.user_id == record.created_by:
+            raise _api_error(
+                403,
+                "APPROVAL_SELF_DECISION",
+                "Requester cannot approve its own session",
+            )
+        record = _restore_session_phase(dependencies, typed_experiment_id, record)
+        events = stream_resume(
+            experiment_id=typed_experiment_id,
+            approved=body.decision == "approve",
+            message=body.message,
+            environment=agent_environment(typed_experiment_id, subject),
+        )
+        return StreamingResponse(
+            _agent_event_stream(dependencies, typed_experiment_id, events),
+            media_type="text/event-stream",
+        )
 
     @app.post("/api/v1/experiments", response_model=GraphRunView, status_code=201)
     def create_experiment(

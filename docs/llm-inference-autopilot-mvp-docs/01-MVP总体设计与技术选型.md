@@ -227,6 +227,10 @@ Adapter 编译为具体 API/CLI/容器参数
               RTX 5090 独占
 ```
 
+MVP 的用户入口固定为 Click + Textual TUI。Click 提供安装入口和非交互命令，Textual 提供连续对话、
+消息滚动、Markdown、Command Palette、状态栏和 SSE 实时事件。TUI 仅调用 FastAPI，不包含领域执行逻辑。
+该决策见 `docs/adr/ADR-017-agent-tui-and-streaming.md`。
+
 ---
 
 ## 9. MVP 部署形态

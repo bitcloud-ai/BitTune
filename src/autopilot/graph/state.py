@@ -114,7 +114,9 @@ class GraphStateSnapshot(StrictModel):
         return value
 
 
-def new_state(*, experiment_id: ExperimentId, thread_id: str, message: str) -> AutopilotState:
+def new_state(
+    *, experiment_id: ExperimentId, thread_id: str, message: str | None
+) -> AutopilotState:
     """Create the only valid initial state for a new Experiment."""
     state: AutopilotState = {
         "schema_version": "autopilot-state/v1",
@@ -122,7 +124,6 @@ def new_state(*, experiment_id: ExperimentId, thread_id: str, message: str) -> A
         "experiment_id": str(experiment_id),
         "status": ExperimentStatus.ACTIVE.value,
         "phase": ExperimentPhase.REQUIREMENTS.value,
-        "user_message": message,
         "candidate_refs": [],
         "benchmark_summary_refs": [],
         "trial_refs": [],
@@ -131,6 +132,8 @@ def new_state(*, experiment_id: ExperimentId, thread_id: str, message: str) -> A
         "retry_count": 0,
         "baseline_completed": False,
     }
+    if message is not None:
+        state["user_message"] = message
     GraphStateSnapshot.model_validate(state)
     return state
 

@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "description": "Bounded, JSON-safe message projection returned by the API.",
+  "properties": {
+    "content": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    },
+    "role": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Role",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "agent-message-view/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tool_call_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Call Id"
+    },
+    "tool_name": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Name"
+    }
+  },
+  "required": [
+    "role",
+    "content"
+  ],
+  "title": "AgentMessageView",
+  "type": "object"
+}

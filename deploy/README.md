@@ -26,6 +26,11 @@ API 容器使用固定非 Root UID、只读根文件系统、临时 `tmpfs`、`d
 `no-new-privileges`，且没有 Docker Socket、GPU 设备或 Host Runner Socket。Host Runner
 继续独立由 `runner/systemd/autopilot-runner.service` 管理；API 容器不能直接调用它。
 
+Compose 将模型密钥映射为 Pydantic Settings 所需的
+`/run/secrets/AUTOPILOT_API_MODEL_PROVIDER_API_KEY`，并固定连接 Compose 内的 OPA 服务。
+`AGENT_VERIFIED_PROVIDERS`、`AGENT_HARDWARE_CAPABILITIES` 和
+`AGENT_ENABLED_PROVIDERS` 必须保持 JSON 空数组，直到 G0 产生并验证对应 Profile。
+
 当前 Compose 不创建虚假的 Worker：仓库尚未把真实 Provider Profile 组装成可执行 Worker，
 因此没有用空循环进程冒充 Job 执行。G0 固定 Provider 后，Worker 通过 PostgreSQL Lease
 Queue 和受控 Runner 接入，仍需保持同一镜像 Digest 和本契约。
@@ -38,6 +43,7 @@ Queue 和受控 Runner 接入，仍需保持同一镜像 Digest 和本契约。
 ```bash
 export AUTOPILOT_API_URL=http://127.0.0.1:8000
 export AUTOPILOT_API_TOKEN='your-token'
+uv run autopilot chat
 uv run autopilot create '为指定模型生成单 GPU 优化计划'
 uv run autopilot status <experiment_id>
 uv run autopilot events <experiment_id>

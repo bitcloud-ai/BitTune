@@ -7,15 +7,15 @@
   "documents": [
     {
       "file": "01-MVP总体设计与技术选型.md",
-      "bytes": 14170,
-      "lines": 408,
-      "sha256": "199b56feafa83000d778b2019e80c84ae405539620ea52fba9ef05e95ececf4f"
+      "bytes": 14490,
+      "lines": 412,
+      "sha256": "b22c31a9e920694a8b5a9cbd77e2fa5022aed50bc8d98e5742f0f4805b378157"
     },
     {
       "file": "02-Agent工作流与能力编排设计.md",
-      "bytes": 11679,
-      "lines": 551,
-      "sha256": "41e45201d32222364ffcb270c451c4d43d13808f6c633207c61ea400608ba4bf"
+      "bytes": 14709,
+      "lines": 598,
+      "sha256": "4d050ee0c334c531b6037b66a4125c83a1db7ec2277028911d89318d5b06be6c"
     },
     {
       "file": "03-能力包与Tool转换设计.md",
@@ -31,9 +31,9 @@
     },
     {
       "file": "05-系统技术架构与数据设计.md",
-      "bytes": 17242,
-      "lines": 647,
-      "sha256": "2507c116041105d79d924714c6a0ae7aa4b6d9c9c92c7e90eb27d1b82d78c163"
+      "bytes": 17507,
+      "lines": 651,
+      "sha256": "7a080e5f62a1096f70ecec315a342578c5e059de36a9d8efd9d93dc277bb231d"
     },
     {
       "file": "06-可扩展性与动态工具可见性设计.md",
@@ -49,9 +49,9 @@
     },
     {
       "file": "08-测试验收与实施路线.md",
-      "bytes": 8559,
-      "lines": 458,
-      "sha256": "4758b85432208128812b0ee5d43b0a1f49f229cfcc2339d7756e035dbc34d6f1"
+      "bytes": 8909,
+      "lines": 463,
+      "sha256": "e11b1ce599b2511fa5e2ee0dc4b174779b1c823326751191648c1195286d3ce7"
     },
     {
       "file": "09-文档审查与准确性报告.md",

@@ -13,6 +13,8 @@ dependencies = [
     "click==8.4.2",
     "fastapi==0.141.1",
     "httpx==0.28.1",
+    "langchain==1.3.14",
+    "langchain-openai==1.4.1",
     "langgraph==1.2.10",
     "langgraph-checkpoint-postgres==3.1.1",
     "openai==2.53.0",
@@ -21,8 +23,10 @@ dependencies = [
     "psycopg[binary]==3.3.4",
     "psycopg-pool==3.3.1",
     "rfc8785==0.1.4",
+    "rich==15.0.0",
     "sqlalchemy==2.0.51",
     "uvicorn==0.52.1",
+    "textual==8.2.8",
 ]
 
 [project.scripts]
@@ -88,7 +92,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "PLR2004", "S101"]
 "src/autopilot/api/app.py" = ["ARG001", "PLR0915", "TRY003"]
-"src/autopilot/cli.py" = ["TRY003"]
+"src/autopilot/cli.py" = ["PLR0912", "PLR0915", "TRY003", "TRY301"]
 "src/autopilot/graph/workflow.py" = ["ARG002", "PLR0911", "PLR0915", "TRY003", "TRY301"]
 
 [tool.ruff.format]

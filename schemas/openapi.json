@@ -1,6 +1,189 @@
 {
   "components": {
     "schemas": {
+      "AgentMessageView": {
+        "additionalProperties": false,
+        "description": "Bounded, JSON-safe message projection returned by the API.",
+        "properties": {
+          "content": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "agent-message-view/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Name"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "AgentMessageView",
+        "type": "object"
+      },
+      "AgentSessionView": {
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": {
+            "$ref": "#/components/schemas/ExperimentId"
+          },
+          "interrupt": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interrupt"
+          },
+          "interrupted": {
+            "title": "Interrupted",
+            "type": "boolean"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentMessageView"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/ExperimentPhase"
+          },
+          "schema_version": {
+            "default": "agent-session-view/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExperimentStatus"
+          },
+          "thread_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "tool_calls": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AgentToolCallView"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          },
+          "tool_set_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Set Id"
+          },
+          "tool_set_version": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Set Version"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "thread_id",
+          "status",
+          "phase",
+          "messages",
+          "interrupted"
+        ],
+        "title": "AgentSessionView",
+        "type": "object"
+      },
+      "AgentToolCallView": {
+        "additionalProperties": false,
+        "description": "Tool-call projection suitable for CLI event rendering.",
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Arguments",
+            "type": "object"
+          },
+          "schema_version": {
+            "default": "agent-tool-call-view/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "tool_name": {
+            "$ref": "#/components/schemas/ToolName"
+          }
+        },
+        "required": [
+          "tool_name",
+          "arguments",
+          "tool_call_id"
+        ],
+        "title": "AgentToolCallView",
+        "type": "object"
+      },
       "ApprovalDecision": {
         "enum": [
           "pending",
@@ -102,6 +285,31 @@
           "message"
         ],
         "title": "CreateExperimentRequest",
+        "type": "object"
+      },
+      "CreateSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "schema_version": {
+            "default": "create-session-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "title": "CreateSessionRequest",
         "type": "object"
       },
       "DeploymentId": {
@@ -1183,6 +1391,63 @@
         "title": "RiskLevel",
         "type": "string"
       },
+      "SessionMessageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "session-message-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "SessionMessageRequest",
+        "type": "object"
+      },
+      "SessionResumeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "schema_version": {
+            "default": "session-resume-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "SessionResumeRequest",
+        "type": "object"
+      },
       "Sha256Digest": {
         "description": "Lowercase SHA-256 digest with an explicit algorithm prefix.",
         "title": "Sha256Digest",
@@ -2246,6 +2511,426 @@
           }
         },
         "summary": "Decide Plan"
+      }
+    },
+    "/api/v1/sessions": {
+      "post": {
+        "operationId": "create_session_api_v1_sessions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}": {
+      "get": {
+        "operationId": "get_session_api_v1_sessions__experiment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}/events": {
+      "get": {
+        "operationId": "session_events_api_v1_sessions__experiment_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Events"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}/messages": {
+      "post": {
+        "operationId": "send_session_message_api_v1_sessions__experiment_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Session Message"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}/messages/stream": {
+      "post": {
+        "operationId": "stream_session_message_api_v1_sessions__experiment_id__messages_stream_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Session Message"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}/resume": {
+      "post": {
+        "operationId": "resume_session_api_v1_sessions__experiment_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionResumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Session"
+      }
+    },
+    "/api/v1/sessions/{experiment_id}/resume/stream": {
+      "post": {
+        "operationId": "stream_session_resume_api_v1_sessions__experiment_id__resume_stream_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionResumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Session Resume"
       }
     },
     "/healthz": {
