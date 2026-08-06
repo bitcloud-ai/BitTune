@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
 from pydantic import JsonValue
@@ -24,11 +24,14 @@ from autopilot.domain.identifiers import (
     ArtifactId,
     DeploymentId,
     ExperimentId,
+    JobId,
     PlanHash,
     PlanId,
     Sha256Digest,
     UserId,
+    WorkerId,
 )
+from autopilot.domain.jobs import JobProgress, JobRecord
 from autopilot.evidence.models import ArtifactMetadata
 from autopilot.gateway.approval_ports import CreateApprovalRequest, DecideApprovalRequest
 from autopilot.infrastructure.artifacts import LocalArtifactStore
@@ -38,7 +41,11 @@ from autopilot.infrastructure.database.models import (
     ExperimentRow,
     PlanRow,
 )
-from autopilot.infrastructure.database.repositories import SqlAlchemyApprovalRepository
+from autopilot.infrastructure.database.repositories import (
+    SqlAlchemyApprovalRepository,
+    SqlAlchemyJobRepository,
+)
+from autopilot.jobs.models import ClaimedJob, JobEvent, JobTransition
 
 EXPERIMENT_ALREADY_EXISTS = "Experiment already exists"
 
@@ -105,6 +112,12 @@ class DeploymentStore(Protocol):
     def get(
         self, experiment_id: ExperimentId, deployment_id: DeploymentId
     ) -> DeploymentProjection | None: ...
+
+
+class JobStore(Protocol):
+    def get(self, job_id: JobId) -> JobRecord | None: ...
+
+    def request_cancel(self, *, job_id: JobId) -> JobRecord: ...
 
 
 class ArtifactQuery(Protocol):
@@ -228,6 +241,80 @@ class SqlAlchemyExperimentStore:
             row.updated_at = utc_now()
             session.flush()
             return self._record(row)
+
+
+class SqlAlchemyJobStore:
+    """Open one transaction per REST Job operation over the shared PostgreSQL queue."""
+
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self._sessions = sessions
+
+    def get(self, job_id: JobId) -> JobRecord | None:
+        with self._sessions() as session:
+            return SqlAlchemyJobRepository(session).get(job_id)
+
+    def claim_next(self, *, worker_id: WorkerId, lease_duration: timedelta) -> ClaimedJob | None:
+        with self._sessions.begin() as session:
+            return SqlAlchemyJobRepository(session).claim_next(
+                worker_id=worker_id,
+                lease_duration=lease_duration,
+            )
+
+    def heartbeat(
+        self,
+        *,
+        job_id: JobId,
+        worker_id: WorkerId,
+        fencing_token: int,
+        lease_duration: timedelta,
+    ) -> ClaimedJob:
+        with self._sessions.begin() as session:
+            return SqlAlchemyJobRepository(session).heartbeat(
+                job_id=job_id,
+                worker_id=worker_id,
+                fencing_token=fencing_token,
+                lease_duration=lease_duration,
+            )
+
+    def transition(
+        self,
+        *,
+        job_id: JobId,
+        transition: JobTransition,
+        worker_id: WorkerId | None = None,
+        fencing_token: int | None = None,
+    ) -> JobRecord:
+        with self._sessions.begin() as session:
+            return SqlAlchemyJobRepository(session).transition(
+                job_id=job_id,
+                transition=transition,
+                worker_id=worker_id,
+                fencing_token=fencing_token,
+            )
+
+    def update_progress(
+        self,
+        *,
+        job_id: JobId,
+        worker_id: WorkerId,
+        fencing_token: int,
+        progress: JobProgress,
+    ) -> JobRecord:
+        with self._sessions.begin() as session:
+            return SqlAlchemyJobRepository(session).update_progress(
+                job_id=job_id,
+                worker_id=worker_id,
+                fencing_token=fencing_token,
+                progress=progress,
+            )
+
+    def request_cancel(self, *, job_id: JobId) -> JobRecord:
+        with self._sessions.begin() as session:
+            return SqlAlchemyJobRepository(session).request_cancel(job_id=job_id)
+
+    def list_events(self, job_id: JobId) -> tuple[JobEvent, ...]:
+        with self._sessions() as session:
+            return SqlAlchemyJobRepository(session).list_events(job_id)
 
 
 class SqlAlchemyPlanStore:
@@ -380,6 +467,7 @@ __all__ = [
     "ExperimentRecord",
     "ExperimentStore",
     "InMemoryExperimentStore",
+    "JobStore",
     "LocalArtifactQuery",
     "PlanProjection",
     "PlanStore",

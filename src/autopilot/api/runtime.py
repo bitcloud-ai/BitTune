@@ -21,6 +21,7 @@ from autopilot.api.repositories import (
     SqlAlchemyArtifactQuery,
     SqlAlchemyDeploymentStore,
     SqlAlchemyExperimentStore,
+    SqlAlchemyJobStore,
     SqlAlchemyPlanStore,
 )
 from autopilot.domain.base import NonEmptyStr, utc_now
@@ -174,6 +175,7 @@ def create_production_app(settings: ApiSettings | None = None) -> FastAPI:
         checkpoint = checkpoint_context.__enter__()
         agent_model = resolved.agent_model()
         registrations = mvp_tool_registrations()
+        verified_providers = frozenset(resolved.agent_verified_providers)
         agent_gateway: AgentGateway = UnavailableAgentGateway()
         if resolved.opa_base_url is not None and resolved.agent_budget_ceiling is not None:
             opa_http_client = httpx.Client(base_url=str(resolved.opa_base_url), timeout=5.0)
@@ -181,7 +183,7 @@ def create_production_app(settings: ApiSettings | None = None) -> FastAPI:
                 sessions=sessions,
                 policy=OpaPolicyClient(opa_http_client),
                 budget_ceiling=resolved.agent_budget_ceiling,
-                provider_statuses=provider_statuses(verified=resolved.agent_verified_providers),
+                provider_statuses=provider_statuses(verified=tuple(sorted(verified_providers))),
                 clock=utc_now,
             )
             agent_gateway = assembly.gateway
@@ -208,6 +210,7 @@ def create_production_app(settings: ApiSettings | None = None) -> FastAPI:
                 else None
             ),
             plans=SqlAlchemyPlanStore(sessions),
+            jobs=SqlAlchemyJobStore(sessions),
             approvals=SqlAlchemyApprovalStore(sessions),
             deployments=SqlAlchemyDeploymentStore(sessions),
             artifacts=SqlAlchemyArtifactQuery(sessions, artifact_store),
@@ -216,7 +219,9 @@ def create_production_app(settings: ApiSettings | None = None) -> FastAPI:
                     experiment_id=experiment_id,
                     subject=subject,
                     hardware_capabilities=frozenset(resolved.agent_hardware_capabilities),
-                    enabled_providers=frozenset(resolved.agent_enabled_providers),
+                    enabled_providers=(
+                        frozenset(resolved.agent_enabled_providers) & verified_providers
+                    ),
                     enabled_feature_flags=frozenset(resolved.agent_enabled_feature_flags),
                 )
             ),

@@ -19,6 +19,7 @@ from autopilot.api.repositories import (
     DeploymentStore,
     ExperimentRecord,
     ExperimentStore,
+    JobStore,
     PlanProjection,
     PlanStore,
 )
@@ -50,7 +51,6 @@ from autopilot.graph.agent import (
 )
 from autopilot.graph.state import GraphStateSnapshot, new_state
 from autopilot.graph.workflow import GraphRunResult, GraphRuntime
-from autopilot.jobs.ports import JobRepository
 
 AGENT_APPROVAL_TTL = timedelta(minutes=15)
 
@@ -164,7 +164,7 @@ class ApiDependencies:
     agent: AgentSessionPort | None = None
     agent_environment: Callable[[ExperimentId, HumanSubject], GatewayEnvironment] | None = None
     plans: PlanStore | None = None
-    jobs: JobRepository | None = None
+    jobs: JobStore | None = None
     approvals: ApprovalStore | None = None
     deployments: DeploymentStore | None = None
     artifacts: ArtifactQuery | None = None
