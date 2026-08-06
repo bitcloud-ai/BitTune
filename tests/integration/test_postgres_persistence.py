@@ -47,6 +47,8 @@ from autopilot.gateway.models import (
 )
 from autopilot.gateway.mvp_tools import (
     DomainPlanResult,
+    JobQuery,
+    JobQueryResult,
     JobSubmissionResult,
     provider_statuses,
 )
@@ -705,6 +707,22 @@ def test_production_gateway_persists_environment_plan_and_idempotent_job(
     assert first.created is True
     assert replay.created is False
     assert replay.job_id == first.job_id
+    status_tool = next(
+        entry for entry in snapshot.tools if str(entry.name) == "get_environment_status"
+    )
+    status_result = assembly.gateway.invoke(
+        request=ToolCallRequest(
+            request_id="integration-status-environment",
+            tool_name=status_tool.name,
+            tool_set_id=snapshot.tool_set_id,
+            expected_tool_set_version=snapshot.tool_set_version,
+            arguments=JobQuery(job_id=first.job_id).model_dump(mode="json"),
+        ),
+        environment=environment,
+    )
+    assert isinstance(status_result, JobQueryResult)
+    assert status_result.job.job_id == first.job_id
+    assert status_result.job.experiment_id == experiment_id
     with session_factory() as session:
         plan = session.get(PlanRow, str(plan_result.plan_id))
         assert plan is not None
