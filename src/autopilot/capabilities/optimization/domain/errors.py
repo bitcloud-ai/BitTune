@@ -1,6 +1,10 @@
 """Typed optimization failures safe for application boundaries."""
 
-from autopilot.capabilities.optimization.domain.enums import OptimizationValidationCode
+from autopilot.capabilities.optimization.domain.enums import (
+    OptimizationValidationCode,
+    TrialExecutionCode,
+    TrialExecutionStage,
+)
 
 
 class OptimizationValidationError(ValueError):
@@ -10,3 +14,27 @@ class OptimizationValidationError(ValueError):
         self.code = code
         self.field = field
         super().__init__(message)
+
+
+class TrialExecutionError(RuntimeError):
+    """Fail-closed orchestration error after a Provider boundary was reached."""
+
+    def __init__(
+        self,
+        code: TrialExecutionCode,
+        message: str,
+        *,
+        retryable: bool,
+    ) -> None:
+        self.code = code
+        self.retryable = retryable
+        super().__init__(message)
+
+
+class TrialExecutionPendingError(RuntimeError):
+    """Signal that an asynchronous Provider job remains non-terminal."""
+
+    def __init__(self, stage: TrialExecutionStage, provider_resource_id: str) -> None:
+        self.stage = stage
+        self.provider_resource_id = provider_resource_id
+        super().__init__(f"{stage.value} Provider job is still running")

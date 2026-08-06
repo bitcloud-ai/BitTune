@@ -487,6 +487,11 @@ def _metrics(request: EvidenceRunRequest) -> tuple[Metric, ...]:
         return ()
     timestamp = _milliseconds(request.ended_at)
     step = request.trial.trial_number
+    constraints_satisfied = (
+        bool(request.trial.constraints)
+        and all(evaluation.passed for evaluation in request.trial.constraints)
+        and not result.oom
+    )
     values = (
         ("latency.e2e_p50_ms", result.latency.e2e_ms.p50),
         ("latency.e2e_p95_ms", result.latency.e2e_ms.p95),
@@ -526,7 +531,7 @@ def _metrics(request: EvidenceRunRequest) -> tuple[Metric, ...]:
         ("measurement.oom", float(result.oom)),
         (
             "constraints.satisfied",
-            float(all(evaluation.passed for evaluation in request.trial.constraints)),
+            float(constraints_satisfied),
         ),
     )
     return tuple(Metric(key, value, timestamp, step) for key, value in values)

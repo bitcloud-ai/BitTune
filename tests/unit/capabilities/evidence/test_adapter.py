@@ -6,6 +6,7 @@ import pytest
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunTag
 from mlflow.exceptions import MlflowException
 
+from autopilot.capabilities.benchmark.domain.models import BenchmarkResult
 from autopilot.capabilities.evidence.adapters.fake import FakeEvidenceAdapter
 from autopilot.capabilities.evidence.adapters.mlflow import MlflowTrackingAdapter
 from autopilot.capabilities.evidence.domain.enums import (
@@ -14,6 +15,9 @@ from autopilot.capabilities.evidence.domain.enums import (
 )
 from autopilot.capabilities.evidence.domain.errors import EvidenceProviderError
 from autopilot.capabilities.evidence.domain.models import EvidenceRunRequest
+from autopilot.domain.enums import ErrorCategory, TrialStatus
+from autopilot.domain.errors import DomainError, ErrorEnvelope
+from autopilot.domain.trials import TrialRecord
 
 PROVIDER_FAILURE_TEXT = "Authorization: Bearer fake-secret"
 
@@ -148,6 +152,55 @@ def test_mlflow_adapter_records_metrics_params_and_redacted_manifest(
     assert "Authorization" not in manifest
     assert "Bearer" not in manifest
     assert "raw_report_hash" in manifest
+
+
+def test_mlflow_adapter_marks_oom_trial_constraints_as_failed(
+    completed_request: EvidenceRunRequest,
+    evidence_profile,
+) -> None:
+    benchmark_result = completed_request.benchmark_result
+    assert benchmark_result is not None
+    oom_result = BenchmarkResult.model_validate(
+        {**benchmark_result.model_dump(mode="python"), "oom": True}
+    )
+    source_trial = completed_request.trial
+    oom_trial = TrialRecord(
+        trial_id=source_trial.trial_id,
+        study_id=source_trial.study_id,
+        trial_number=source_trial.trial_number,
+        candidate_id=source_trial.candidate_id,
+        parameters=source_trial.parameters,
+        status=TrialStatus.OOM,
+        evidence=source_trial.evidence,
+        error=ErrorEnvelope(
+            error=DomainError(
+                code="TRIAL_BENCHMARK_OOM",
+                category=ErrorCategory.OOM,
+                message="normalized benchmark reported CUDA OOM",
+                retryable=False,
+                provider="evalscope",
+            )
+        ),
+    )
+    request = EvidenceRunRequest.model_validate(
+        {
+            **completed_request.model_dump(mode="python"),
+            "trial": oom_trial,
+            "benchmark_result": oom_result,
+        }
+    )
+    client = InMemoryMlflowClient()
+    adapter = MlflowTrackingAdapter(
+        profile=evidence_profile,
+        client=client,
+        sdk_version="3.15.1",
+    )
+
+    reference = adapter.record_run(request)
+    metrics = client.runs[reference.provider_run_id].data.metrics
+
+    assert metrics["measurement.oom"] == 1
+    assert metrics["constraints.satisfied"] == 0
 
 
 def test_mlflow_adapter_replays_one_run_for_the_same_idempotency_key(
