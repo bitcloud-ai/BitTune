@@ -188,5 +188,10 @@ uv run pytest tests/unit tests/contract
 - M4 的真实 Rego Golden Test 需要本机 `opa` 可执行文件，当前环境缺失，因此 14 项跳过；
 - M3/M4 的 13 项真实 PostgreSQL 集成测试已实现，当前 Windows 环境未配置
   `AUTOPILOT_TEST_POSTGRES_URL`，因此数据库执行验收仍待可用 PostgreSQL 测试库；
-- M5～M9 未开始；
-- G0 等待 Linux RTX 5090 主机、固定版本矩阵和明确 GPU 测试批准。
+- M5 已完成实现和 Windows/Fake 验证：FastAPI + Uvicorn UDS、类型化白名单请求、
+  Docker SDK Adapter、单 GPU Lease、路径/Secret/日志边界、vLLM 分层健康检查、取消、超时、
+  磁盘预算、清理和权威快照约束的 Reconciliation 已落地；真实 Linux UDS、Docker、systemd
+  和 GPU 验收仍待目标主机；
+- G0 等待 Linux RTX 5090 主机、固定 Provider 版本矩阵和明确 GPU 测试批准；
+- M6 的非 GPU Fake/Contract 路径正在开发，真实 llm-d Planner、vLLM 和 EvalScope Provider
+  入口在 G0 完成前保持 fail-closed；M7～M9 未开始。
