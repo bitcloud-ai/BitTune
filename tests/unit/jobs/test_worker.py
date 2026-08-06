@@ -80,7 +80,8 @@ class _Jobs:
         job_id: JobId,
         transition: JobTransition,
         **kwargs: Any,
-    ) -> JobRecord:  # noqa: ARG002
+    ) -> JobRecord:
+        del job_id, kwargs
         self.job = transition_job(self.job, transition)
         if self.job.status in {
             JobStatus.SUCCEEDED,
@@ -132,10 +133,10 @@ class _Handler:
 
     def execute(
         self,
-        claimed: ClaimedJob,
-        authorization: JobAuthorizationRecord,
+        _claimed: ClaimedJob,
+        _authorization: JobAuthorizationRecord,
         callbacks: WorkerCallbacks,
-    ) -> WorkerExecutionResult:  # noqa: ARG002
+    ) -> WorkerExecutionResult:
         self.calls += 1
         if self.cancel:
             callbacks.update_progress(
