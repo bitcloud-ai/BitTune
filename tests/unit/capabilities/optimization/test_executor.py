@@ -58,6 +58,7 @@ from autopilot.capabilities.optimization.application.executor import (
     FixedTrialExecutor,
     TrialExecutionRequest,
 )
+from autopilot.capabilities.optimization.domain.enums import TrialExecutionStage
 from autopilot.capabilities.optimization.domain.errors import TrialExecutionPendingError
 from autopilot.capabilities.optimization.domain.models import (
     GpuMemoryUtilizationRange,
@@ -623,6 +624,28 @@ def test_running_benchmark_signals_pending_without_destroying_active_resources()
     assert caught.value.stage.value == "benchmark"
     assert benchmark.cancel_calls == 0
     assert deployment.cancel_calls == 0
+
+
+def test_cancelling_resumed_benchmark_cleans_all_persisted_active_resources() -> None:
+    request, deployment, benchmark, evidence = _request()
+    executor = FixedTrialExecutor(
+        deployment=deployment,
+        benchmark=benchmark,
+        evidence=evidence,
+        clock=lambda: STARTED_AT,
+    )
+
+    result = executor.execute(
+        request,
+        cancellation_requested=lambda: True,
+        active_stage=TrialExecutionStage.BENCHMARK,
+    )
+
+    assert result.trial.status is TrialStatus.CANCELLED
+    assert deployment.start_calls == 0
+    assert benchmark.start_calls == 0
+    assert benchmark.cancel_calls == 1
+    assert deployment.cancel_calls == 1
 
 
 def test_trial_request_rejects_candidate_outside_capacity_provenance() -> None:

@@ -366,6 +366,117 @@ class JobRow(Base):
     )
 
 
+class OptimizationTrialRow(Base):
+    __tablename__ = "optimization_trials"
+
+    trial_id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    trial_schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    experiment_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    plan_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(DIGEST_LENGTH), nullable=False)
+    study_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    trial_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    candidate_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    benchmark_run_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    parameters_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    constraints_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    objective_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    provenance_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    evidence_json: Mapped[list[JsonValue]] = mapped_column(JSONB, nullable=False)
+    error_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    reservation_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    checkpoint_stage: Mapped[str | None] = mapped_column(String(32))
+    provider_resource_id: Mapped[str | None] = mapped_column(String(256))
+    evidence_run_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version = 'optimization-trial-entry/v1'",
+            name="optimization_trial_schema_version",
+        ),
+        CheckConstraint(
+            "trial_schema_version = 'optimization-trial/v1'",
+            name="optimization_trial_record_schema_version",
+        ),
+        CheckConstraint(
+            "status IN ('suggested','rejected_static','deployment_failed','benchmark_failed',"
+            "'oom','constraint_failed','completed','cancelled')",
+            name="optimization_trial_status",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(parameters_json) = 'object' "
+            "AND jsonb_typeof(constraints_json) = 'array' "
+            "AND jsonb_typeof(evidence_json) = 'array' "
+            "AND jsonb_typeof(reservation_json) = 'object'",
+            name="optimization_trial_json_shapes",
+        ),
+        CheckConstraint(
+            "((checkpoint_stage IS NULL AND provider_resource_id IS NULL) OR "
+            "(status = 'suggested' AND checkpoint_stage IN ('deployment','benchmark') "
+            "AND provider_resource_id IS NOT NULL))",
+            name="optimization_trial_checkpoint",
+        ),
+        CheckConstraint(
+            "((status = 'suggested' AND evidence_run_json IS NULL AND ended_at IS NULL) OR "
+            "(status <> 'suggested' AND evidence_run_json IS NOT NULL AND ended_at IS NOT NULL))",
+            name="optimization_trial_terminal_evidence",
+        ),
+        CheckConstraint(
+            "((status IN ('completed','constraint_failed') AND objective_json IS NOT NULL "
+            "AND provenance_json IS NOT NULL AND jsonb_array_length(constraints_json) > 0) OR "
+            "(status NOT IN ('completed','constraint_failed') AND objective_json IS NULL "
+            "AND provenance_json IS NULL AND jsonb_array_length(constraints_json) = 0))",
+            name="optimization_trial_measured_data",
+        ),
+        CheckConstraint(
+            "((status IN ('rejected_static','deployment_failed','benchmark_failed','oom') "
+            "AND error_json IS NOT NULL) OR "
+            "(status NOT IN ('rejected_static','deployment_failed','benchmark_failed','oom') "
+            "AND error_json IS NULL))",
+            name="optimization_trial_error",
+        ),
+        CheckConstraint(
+            "created_at <= updated_at AND (ended_at IS NULL OR updated_at <= ended_at)",
+            name="optimization_trial_chronology",
+        ),
+        CheckConstraint("version >= 1", name="optimization_trial_positive_version"),
+        ForeignKeyConstraint(
+            ["experiment_id", "plan_id", "plan_hash"],
+            [
+                f"{APP_SCHEMA}.plans.experiment_id",
+                f"{APP_SCHEMA}.plans.id",
+                f"{APP_SCHEMA}.plans.plan_hash",
+            ],
+            name="fk_optimization_trials_plan_material",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "study_id",
+            "trial_number",
+            name="uq_optimization_trials_study_number",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "trial_id",
+            name="uq_optimization_trials_experiment_id",
+        ),
+        Index(
+            "ix_optimization_trials_study_status",
+            "experiment_id",
+            "study_id",
+            "status",
+            "trial_number",
+        ),
+    )
+
+
 class IdempotencyRow(Base):
     __tablename__ = "idempotency_records"
 

@@ -248,9 +248,14 @@ class FixedTrialExecutor:
         request: TrialExecutionRequest,
         *,
         cancellation_requested: Callable[[], bool] = lambda: False,
+        active_stage: TrialExecutionStage | None = None,
     ) -> TrialExecutionResult:
         """Run until terminal or signal that an asynchronous Provider remains active."""
-        resources = _ActiveResources()
+        resources = _ActiveResources(
+            deployment_started=active_stage
+            in {TrialExecutionStage.DEPLOYMENT, TrialExecutionStage.BENCHMARK},
+            benchmark_started=active_stage is TrialExecutionStage.BENCHMARK,
+        )
         try:
             trial, benchmark_result = self._run(
                 request,

@@ -13,6 +13,7 @@ from autopilot.infrastructure.database.models import (
     IdempotencyRow,
     JobAuthorizationRow,
     JobRow,
+    OptimizationTrialRow,
     PlanRow,
     ToolSetSnapshotRow,
 )
@@ -32,6 +33,7 @@ def test_metadata_contains_required_m3_tables_without_artifact_blob() -> None:
         "app.job_authorizations",
         "app.events",
         "app.audit_events",
+        "app.optimization_trials",
     }
     assert "content" not in ArtifactRow.__table__.columns
     assert "storage_path" in ArtifactRow.__table__.columns
@@ -80,6 +82,16 @@ def test_gateway_evidence_ddl_enforces_composite_authorization_bindings() -> Non
     assert "DEFERRABLE INITIALLY DEFERRED" in authorization_ddl
 
 
+def test_optimization_trial_ddl_enforces_restart_and_terminal_evidence_contract() -> None:
+    ddl = str(CreateTable(OptimizationTrialRow.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "JSONB" in ddl
+    assert "ck_optimization_trials_optimization_trial_checkpoint" in ddl
+    assert "ck_optimization_trials_optimization_trial_terminal_evidence" in ddl
+    assert "ck_optimization_trials_optimization_trial_measured_data" in ddl
+    assert "fk_optimization_trials_plan_material" in ddl
+
+
 def test_persisted_m3_contracts_store_schema_versions_and_composite_ownership() -> None:
     for row_type in (
         PlanRow,
@@ -90,6 +102,7 @@ def test_persisted_m3_contracts_store_schema_versions_and_composite_ownership() 
         JobAuthorizationRow,
         EventRow,
         AuditEventRow,
+        OptimizationTrialRow,
     ):
         assert "schema_version" in row_type.__table__.columns
 
@@ -160,3 +173,19 @@ def test_approval_migration_enforces_single_terminal_transition_and_no_deletion(
     assert "toolset_snapshots_append_only" in migration
     assert "job_authorizations_append_only" in migration
     assert "fk_job_authorizations_idempotency_material" in migration
+
+
+def test_optimization_trial_migration_provisions_optuna_schema_and_lifecycle() -> None:
+    migration = (
+        Path(__file__).parents[3]
+        / "alembic"
+        / "versions"
+        / "20260806_0003_optimization_trial_ledger.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'down_revision: str | None = "20260806_0002"' in migration
+    assert "CREATE SCHEMA IF NOT EXISTS optuna" in migration
+    assert "optimization_trials_lifecycle" in migration
+    assert "optimization_trials_no_truncate" in migration
+    assert "terminal Optimization Trial records are immutable" in migration
+    assert "fk_optimization_trials_plan_material" in migration
