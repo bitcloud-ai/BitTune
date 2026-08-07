@@ -6,12 +6,24 @@ fail-closed，不会回退到内存状态或假执行。
 
 ## 启动
 
-1. 在目标 Linux 主机安装 Docker Compose Plugin，并准备一个 root-only 的
+1. 在受信任构建环境使用仓库固定的 Python 和 uv 镜像 Digest 构建控制面镜像，推送到受控
+   Registry 后记录最终镜像 Digest：
+
+   ```bash
+   docker build --platform linux/amd64 -f deploy/Dockerfile \
+     -t registry.example.invalid/bittune-autopilot:0.1.0 .
+   docker push registry.example.invalid/bittune-autopilot:0.1.0
+   docker buildx imagetools inspect registry.example.invalid/bittune-autopilot:0.1.0
+   ```
+
+   `.env` 中的 `AUTOPILOT_API_IMAGE` 必须填写推送后的
+   `registry.example.invalid/bittune-autopilot@sha256:<digest>`，不能填写构建标签。
+2. 在目标 Linux 主机安装 Docker Compose Plugin，并准备一个 root-only 的
    `model-provider-api-key` 文件。API 进程只通过 `/run/secrets/model_provider_api_key`
    读取该 Secret；Secret 不进入 Graph State、日志、Artifact 或 MLflow。
-2. 复制 `.env.example` 为 `.env`，填入实际镜像 Digest、PostgreSQL 密码、两个不同的
+3. 复制 `.env.example` 为 `.env`，填入实际镜像 Digest、PostgreSQL 密码、两个不同的
    Human `UserId` 和对应 SHA-256 Token Hash。不要使用 `latest` 或示例占位值。
-3. 先执行迁移，再启动控制面：
+4. 先执行迁移，再启动控制面：
 
    ```bash
    docker compose --env-file .env -f deploy/compose.yaml run --rm migrate
@@ -19,7 +31,7 @@ fail-closed，不会回退到内存状态或假执行。
    curl -fsS http://127.0.0.1:8000/healthz
    ```
 
-4. API 对外只绑定 `127.0.0.1:8000`，生产入口应由受控反向代理或内网访问策略提供；
+5. API 对外只绑定 `127.0.0.1:8000`，生产入口应由受控反向代理或内网访问策略提供；
    OPA、MLflow 和 PostgreSQL 不发布主机端口。
 
 API 容器使用固定非 Root UID、只读根文件系统、临时 `tmpfs`、`drop ALL`、

@@ -270,8 +270,8 @@ uv run pytest tests/unit tests/contract
   PostgreSQL、OPA/MLflow 线上与 Linux/RTX 5090 验收仍待对应环境。
 - M9 已完成部署模板的非 GPU 部分：固定 Digest 变量的 Compose 控制面、API 非 Root/只读
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
-  配置模板、迁移入口、备份恢复文档、基于 Click 的 REST/SSE CLI、Compose 安全契约测试，
-  以及代码生成的 OpenAPI。
+  配置模板、固定 Python/uv Digest 的多阶段控制面镜像、迁移入口、健康检查、备份恢复文档、
+  基于 Click 的 REST/SSE CLI、Compose 安全契约测试，以及代码生成的 OpenAPI。
   M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境。
 - 领域 Plan 持久化和 Gateway Job Dispatcher 已完成：Environment、Deployment、Benchmark、
   Capacity、Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
