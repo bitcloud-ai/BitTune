@@ -90,6 +90,39 @@ services:
       retries: 12
     pids_limit: 256
 
+  model-provider-secret-init:
+    image: ${AUTOPILOT_API_IMAGE:?set an immutable Autopilot API image digest}
+    restart: "no"
+    command:
+      - python
+      - -c
+      - |
+        import os
+        from pathlib import Path
+
+        source = Path("/input/model-provider-api-key")
+        target = Path("/output/AUTOPILOT_API_MODEL_PROVIDER_API_KEY")
+        os.umask(0o377)
+        if target.exists():
+            target.chmod(0o600)
+        target.write_bytes(source.read_bytes())
+        target.chmod(0o444)
+    user: "0:0"
+    network_mode: none
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - type: bind
+        source: ${AUTOPILOT_MODEL_PROVIDER_API_KEY_FILE:?set a root-owned model provider API key file}
+        target: /input/model-provider-api-key
+        read_only: true
+      - model-provider-secrets:/output
+    pids_limit: 64
+
   migrate:
     image: ${AUTOPILOT_API_IMAGE:?set an immutable Autopilot API image digest}
     restart: "no"
@@ -119,6 +152,8 @@ services:
         condition: service_started
       mlflow:
         condition: service_healthy
+      model-provider-secret-init:
+        condition: service_completed_successfully
     user: "65532:65532"
     read_only: true
     cap_drop: ["ALL"]
@@ -142,11 +177,9 @@ services:
       AUTOPILOT_API_AGENT_HARDWARE_CAPABILITIES: ${AUTOPILOT_API_AGENT_HARDWARE_CAPABILITIES:-[]}
       AUTOPILOT_API_AGENT_ENABLED_PROVIDERS: ${AUTOPILOT_API_AGENT_ENABLED_PROVIDERS:-[]}
       AUTOPILOT_API_AGENT_ENABLED_FEATURE_FLAGS: ${AUTOPILOT_API_AGENT_ENABLED_FEATURE_FLAGS:-[]}
-    secrets:
-      - source: model_provider_api_key
-        target: AUTOPILOT_API_MODEL_PROVIDER_API_KEY
     volumes:
       - artifacts:/artifacts
+      - model-provider-secrets:/run/secrets:ro
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -164,7 +197,4 @@ volumes:
   postgres-data:
   artifacts:
   mlflow-artifacts:
-
-secrets:
-  model_provider_api_key:
-    file: ${AUTOPILOT_MODEL_PROVIDER_API_KEY_FILE:?set a root-owned model provider API key file}
+  model-provider-secrets:

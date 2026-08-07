@@ -40,6 +40,11 @@ def test_control_plane_compose_requires_immutable_images_and_api_hardening() -> 
     assert "AUTOPILOT_API_AGENT_BUDGET_CEILING:" in api
     assert "healthcheck:" in api
     assert "http://127.0.0.1:8000/healthz" in api
+    assert "model-provider-secret-init:" in document
+    assert 'user: "0:0"' in document
+    assert "network_mode: none" in document
+    assert "model-provider-secrets:/run/secrets:ro" in api
+    assert "AUTOPILOT_API_MODEL_PROVIDER_API_KEY" in document
 
 
 def test_deployment_template_does_not_embed_provider_secret_values() -> None:
@@ -47,7 +52,7 @@ def test_deployment_template_does_not_embed_provider_secret_values() -> None:
 
     assert "MODEL_PROVIDER_API_KEY=" not in env_template
     assert "AUTOPILOT_MODEL_PROVIDER_API_KEY_FILE=" in env_template
-    assert "target: AUTOPILOT_API_MODEL_PROVIDER_API_KEY" in COMPOSE.read_text(encoding="utf-8")
+    assert "/input/model-provider-api-key" in COMPOSE.read_text(encoding="utf-8")
 
 
 def test_control_plane_dockerfile_is_reproducible_and_non_root() -> None:

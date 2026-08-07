@@ -22,8 +22,10 @@ fail-closed，不会回退到内存状态或假执行。
    `psycopg` 的上游 MLflow 基础镜像。
 2. 在目标 Linux 主机安装 Docker Compose Plugin，并准备一个 root-only 的
    `model-provider-api-key` 文件。未配置 ModelProvider 时该文件必须为空；启用时必须与
-   Base URL 和 Model 同时配置。API 进程只通过 `/run/secrets/model_provider_api_key`
-   读取该 Secret；Secret 不进入 Graph State、日志、Artifact 或 MLflow。
+   Base URL 和 Model 同时配置。一次性、无网络的 `model-provider-secret-init` 容器读取该
+   root-only 源文件并复制到受 Docker volume 保护的 Secret 文件；API 只读挂载
+   `/run/secrets`，源文件不直接暴露给非 Root API。Secret 不进入环境变量、Graph State、
+   日志、Artifact 或 MLflow。
 3. 复制 `.env.example` 为 `.env`，填入实际镜像 Digest、PostgreSQL 密码、两个不同的
    Human `UserId` 和对应 SHA-256 Token Hash。不要使用 `latest` 或示例占位值。
 4. 先执行迁移，再启动控制面：
@@ -46,6 +48,8 @@ MLflow Tracking/Artifact，关闭不在范围内的 MLflow Job Execution，并�
 API 容器使用固定非 Root UID、只读根文件系统、临时 `tmpfs`、`drop ALL`、
 `no-new-privileges`，且没有 Docker Socket、GPU 设备或 Host Runner Socket。Host Runner
 继续独立由 `runner/systemd/autopilot-runner.service` 管理；API 容器不能直接调用它。
+Secret bootstrap 使用同一固定镜像、无网络、`drop ALL`，只拥有 root-only Secret 的只读
+bind mount 和专用输出 volume；它退出成功后 API 才会启动，API 对该 volume 只有只读权限。
 
 Compose 将模型密钥映射为 Pydantic Settings 所需的
 `/run/secrets/AUTOPILOT_API_MODEL_PROVIDER_API_KEY`，并固定连接 Compose 内的 OPA 服务。

@@ -276,8 +276,12 @@ uv run pytest tests/unit tests/contract
   Alembic migration、API/MLflow 健康检查、MLflow Tracking 参数/指标/HTTP Artifact 写入读取、
   OPA 1.9.0 Decision ID 与 L0/L3 allow/deny、Bearer Token、Click create/status、服务重建后的
   Experiment/Run/Artifact 恢复均已通过；未配置 ModelProvider 时 CLI create 明确返回
-  `MODEL_PROVIDER_UNAVAILABLE`。目标原生 Linux、systemd Host Runner 和 RTX 5090/G0 验收仍待
-  SSH 入场条件恢复后执行。
+  `MODEL_PROVIDER_UNAVAILABLE`。目标原生 Linux 验收进一步发现并修复了 root-only file Secret
+  与非 Root API 的权限冲突，改为无网络 bootstrap 容器复制到 API 只读的专用 Docker volume；
+  Ubuntu 24.04 / Docker 29.1.3 / Compose 2.40.3 目标机已完成 Alembic、API 认证、Click
+  `create/status`、OPA L0/L3 Decision ID、MLflow Tracking 与 HTTP Artifact 验收，控制面保持运行。
+  该目标机没有 NVIDIA GPU 或 `nvidia-smi`，systemd Host Runner 和 RTX 5090/G0 验收仍待具备
+  NVIDIA GPU 的目标环境。
 - 领域 Plan 持久化和 Gateway Job Dispatcher 已完成：Environment、Deployment、Benchmark、
   Capacity、Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
   Approval v2；`start_*` 已完成幂等授权、Job 入队、审计和可重放响应。生产 Provider 未完成
