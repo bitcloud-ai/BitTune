@@ -238,9 +238,9 @@ uv run pytest tests/unit tests/contract
 - M4 已完成实现和非 PostgreSQL 验证：opaque Bearer Token 认证、动态 Tool 可见性、
   Gateway 强制链、OPA fail-closed Client/Rego、Approval v2、Tool Set Snapshot、Job
   Authorization 及资源预留前的事务级幂等 Claim 已落地；
-- M4 的真实 Rego Golden Test 需要本机 `opa` 可执行文件，当前环境缺失，因此 14 项跳过；
-- M3/M4 的 PostgreSQL 集成验收共 14 项已通过；OPA Rego Golden Test 仍因 Windows 环境
-  没有本机 `opa` 可执行文件而跳过；
+- M4 的真实 Rego Golden Test 已使用固定 OPA 1.9.0 可执行文件完成，14 项全部通过；
+- M3/M4 的 PostgreSQL 16 集成验收已在一次性 Docker 测试库完成，当前共 16 项通过，覆盖
+  Migration、Lease、Fencing、幂等、Approval、取消、Artifact、生产 Gateway Job 查询和重启恢复；
 - M5 已完成实现和 Windows/Fake 验证：FastAPI + Uvicorn UDS、类型化白名单请求、
   Docker SDK Adapter、单 GPU Lease、路径/Secret/日志边界、vLLM 分层健康检查、取消、超时、
   磁盘预算、清理和权威快照约束的 Reconciliation 已落地；真实 Linux UDS、Docker、systemd
