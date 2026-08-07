@@ -12,14 +12,15 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY pyproject.toml uv.lock README.md .python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-install-project --extra evidence --extra optimization
+    uv sync --locked --no-dev --no-install-project \
+    --extra evidence --extra optimization --extra tracking-server
 
 COPY src ./src
 COPY runner ./runner
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --extra evidence --extra optimization
+    uv sync --locked --no-dev --extra evidence --extra optimization --extra tracking-server
 
 FROM python:3.12.13-slim@sha256:646fb0bca3dd3ea1bcc6feb72c17ed16eed6e10cffc732fcc1478bd3e7f02d7b AS runtime
 
@@ -28,8 +29,11 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+RUN groupadd --gid 65532 autopilot
+RUN useradd --uid 65532 --gid 65532 --no-create-home --home-dir /nonexistent \
+    --shell /usr/sbin/nologin autopilot
 COPY --from=builder --chown=65532:65532 /app /app
-RUN mkdir -p /artifacts && chown 65532:65532 /artifacts
+RUN mkdir -p /artifacts /mlartifacts && chown 65532:65532 /artifacts /mlartifacts
 
 USER 65532:65532
 EXPOSE 8000

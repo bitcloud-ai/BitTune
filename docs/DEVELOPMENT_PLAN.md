@@ -272,7 +272,12 @@ uv run pytest tests/unit tests/contract
   根文件系统/无 Docker Socket 安全约束、OPA Policy Bundle 挂载、Secret 文件边界、
   配置模板、固定 Python/uv Digest 的多阶段控制面镜像、迁移入口、健康检查、备份恢复文档、
   基于 Click 的 REST/SSE CLI、Compose 安全契约测试，以及代码生成的 OpenAPI。
-  M9 的真实 Docker Compose、PostgreSQL、OPA、MLflow 和 Linux 边界验收仍待对应环境。
+  本机 Linux/amd64 容器已完成完整非 GPU Compose 验收：全新 PostgreSQL 双数据库初始化与
+  Alembic migration、API/MLflow 健康检查、MLflow Tracking 参数/指标/HTTP Artifact 写入读取、
+  OPA 1.9.0 Decision ID 与 L0/L3 allow/deny、Bearer Token、Click create/status、服务重建后的
+  Experiment/Run/Artifact 恢复均已通过；未配置 ModelProvider 时 CLI create 明确返回
+  `MODEL_PROVIDER_UNAVAILABLE`。目标原生 Linux、systemd Host Runner 和 RTX 5090/G0 验收仍待
+  SSH 入场条件恢复后执行。
 - 领域 Plan 持久化和 Gateway Job Dispatcher 已完成：Environment、Deployment、Benchmark、
   Capacity、Optimization Plan 使用不可变 Plan Hash 入库；L1 Plan 自动批准，L2 Plan 保持 draft 并绑定
   Approval v2；`start_*` 已完成幂等授权、Job 入队、审计和可重放响应。生产 Provider 未完成

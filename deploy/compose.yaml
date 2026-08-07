@@ -10,6 +10,7 @@ services:
       POSTGRES_PASSWORD: ${AUTOPILOT_POSTGRES_PASSWORD:?set PostgreSQL password through deployment secret management}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-init-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -22,7 +23,12 @@ services:
   opa:
     image: ${AUTOPILOT_OPA_IMAGE:?set an immutable OPA image digest}
     restart: unless-stopped
-    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies"]
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --set=decision_logs.console=true
+      - /policies
     read_only: true
     cap_drop: ["ALL"]
     security_opt:
@@ -36,7 +42,7 @@ services:
     pids_limit: 128
 
   mlflow:
-    image: ${AUTOPILOT_MLFLOW_IMAGE:?set an immutable MLflow image digest}
+    image: ${AUTOPILOT_API_IMAGE:?set an immutable Autopilot API image digest}
     restart: unless-stopped
     command:
       - mlflow
@@ -45,23 +51,43 @@ services:
       - 0.0.0.0
       - --port
       - "5000"
+      - --workers
+      - "1"
+      - --allowed-hosts
+      - "mlflow,mlflow:*,localhost,localhost:*,127.0.0.1,127.0.0.1:*"
       - --backend-store-uri
-      - postgresql+psycopg://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/${AUTOPILOT_POSTGRES_DB}
-      - --default-artifact-root
+      - postgresql+psycopg://${AUTOPILOT_POSTGRES_USER}:${AUTOPILOT_POSTGRES_PASSWORD}@postgres:5432/autopilot_mlflow
+      - --artifacts-destination
       - /mlartifacts
     depends_on:
       postgres:
         condition: service_healthy
+    user: "65532:65532"
     read_only: true
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
     volumes:
       - mlflow-artifacts:/mlartifacts
     expose:
       - "5000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
     pids_limit: 256
 
   migrate:
@@ -92,7 +118,7 @@ services:
       opa:
         condition: service_started
       mlflow:
-        condition: service_started
+        condition: service_healthy
     user: "65532:65532"
     read_only: true
     cap_drop: ["ALL"]
