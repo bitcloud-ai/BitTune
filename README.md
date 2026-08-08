@@ -1,6 +1,7 @@
 # BitTune LLM Inference Autopilot
 
-BitTune 是面向单台 Linux 主机、单张 NVIDIA RTX 5090 32 GB 的大模型推理 Autopilot MVP。它使用可恢复工作流程管理环境检测、容量规划、vLLM 部署、EvalScope 压测、Optuna 搜索、候选复测和证据归档。
+BitTune是安装在GPU或其他AI加速设备环境中的模型部署与调优智能体：它自动识别设备环境，生成设备支持的模型、量化版本和推理引擎组合，由用户选择后完成一键部署、调优前测试、甜点调优、同条件复测和对比报告，并可由用户选择是否接入BitCloud Router测试环境。 
+MVP是面向单台Linux 主机、单张NVIDIA RTX 5090 32GB的大模型推理Autopilot MVP。它使用可恢复工作流程管理环境检测、容量规划、vLLM部署、EvalScope压测、Optuna搜索、候选复测和证据归档。
 
 架构基线见 [MVP 技术文档](docs/llm-inference-autopilot-mvp-docs/README.md)，分阶段实施与验收条件见 [开发计划](docs/DEVELOPMENT_PLAN.md)。
 
