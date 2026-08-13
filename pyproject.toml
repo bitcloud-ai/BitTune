@@ -9,7 +9,7 @@ description = "Auditable single-GPU LLM inference Autopilot MVP"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "alembic==1.19.0",
+    "alembic==1.19.1",
     "click==8.4.2",
     "fastapi==0.141.1",
     "httpx==0.28.1",
