@@ -1,5 +1,8 @@
 # BitTune LLM Inference Autopilot
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/bitcloud-ai/BitTune/actions/workflows/ci.yml/badge.svg)](https://github.com/bitcloud-ai/BitTune/actions/workflows/ci.yml)
+
 BitTune是安装在GPU或其他AI加速设备环境中的模型部署与调优智能体：它自动识别设备环境，生成设备支持的模型、量化版本和推理引擎组合，由用户选择后完成一键部署、调优前测试、甜点调优、同条件复测和对比报告，并可由用户选择是否接入BitCloud Router测试环境。 
 MVP是面向单台Linux 主机、单张NVIDIA RTX 5090 32GB的大模型推理Autopilot MVP。它使用可恢复工作流程管理环境检测、容量规划、vLLM部署、EvalScope压测、Optuna搜索、候选复测和证据归档。
 
@@ -72,3 +75,11 @@ uv run autopilot cancel <experiment_id>
 `create` 返回的 `experiment_id` 用于后续查询、恢复和取消。长时间操作通过服务端 Job
 异步执行，`events` 只输出结构化 SSE；真实 GPU Provider 未配置时服务端按契约拒绝执行，
 不会伪造性能结果。
+
+## 贡献
+
+我们欢迎社区贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献指南，并查看 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) 了解社区行为准则。
+
+## 许可证
+
+本项目采用 [Apache License 2.0](LICENSE) 开源协议。
