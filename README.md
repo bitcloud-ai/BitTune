@@ -25,6 +25,8 @@ API 、Worker 和 Host Runner 在部署时使用分离的依赖集；`--all-extr
 
 ## 标准检查
 
+以下命令应在仓库根目录执行；它们不会启动真实 GPU 测试。
+
 ```bash
 uv run ruff check .
 uv run ruff format --check .
