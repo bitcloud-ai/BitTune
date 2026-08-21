@@ -1,1 +1,0 @@
-"""Job application unit tests."""

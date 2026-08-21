@@ -1,0 +1,14 @@
+{
+  "name": "external-service",
+  "service": {
+    "source": "docker",
+    "management_status": "externally_managed",
+    "confidence": "inferred",
+    "service_type": "vllm",
+    "endpoint_url": "http://127.0.0.1:18000"
+  },
+  "expected": {
+    "inspect_only_by_default": true,
+    "must_not_stop_or_modify": true
+  }
+}

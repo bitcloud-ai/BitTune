@@ -1,1 +1,0 @@
-"""Tool Gateway unit tests."""

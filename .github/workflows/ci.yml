@@ -14,36 +14,25 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Set up Node.js
+        uses: actions/setup-node@1e60f620b9541d1bbd422a53da3c6bb5e8e2e2e7 # v4.0.3
         with:
-          version: 0.12.1
-          enable-cache: true
+          node-version: 22.19.0
+          cache: npm
 
-      - name: Install Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: .python-version
-
-      - name: Sync locked dependencies
-        run: uv sync --locked --all-extras
-
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Check formatting
-        run: uv run ruff format --check .
+      - name: Install dependencies
+        run: npm ci
 
       - name: Type check
-        run: uv run mypy src/autopilot runner
+        run: npm run check
 
-      - name: Test unit and contracts
-        run: uv run pytest tests/unit tests/contract
+      - name: Test
+        run: npm test
 
-      - name: Validate architecture documents
-        run: uv run python scripts/validate_docs.py
+      - name: Build shell
+        run: npm run build:shell
 
-      - name: Validate generated JSON Schema
-        run: uv run python scripts/export_schemas.py
+      - name: Verify release boundary
+        run: npm run check:release-boundary

@@ -1,36 +1,16 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyd
-.venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-build/
+node_modules/
 dist/
-*.egg-info/
-
-# Editors and operating systems
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-
-# Secrets and local configuration
+release/
+coverage/
+.pi/agent/
+.pi/trust.json
 .env
 .env.*
 !.env.example
+artifacts/
+models/
 *.pem
 *.key
 secrets/
-
-# Autopilot runtime data
-artifacts/
-models/
-runtime/
-logs/
-tmp/
-postgres-data/
-mlruns/
+.tmp-*/
+*.tgz

@@ -1,0 +1,9 @@
+{
+  "name": "no-gpu",
+  "description": "Host has no discoverable NVIDIA GPU.",
+  "expected": {
+    "partial_observation": true,
+    "must_not_start_container": true,
+    "must_not_publish_baseline": true
+  }
+}

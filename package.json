@@ -1,0 +1,79 @@
+{
+  "name": "@bittune/runtime",
+  "version": "0.3.2-dev",
+  "private": true,
+  "description": "Bittune inference engineering agent shell powered by an embedded agent runtime.",
+  "license": "MIT",
+  "author": "BitCloud <litianqi@bitcloud.com.cn>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitcloud-ai/BitTune.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bitcloud-ai/BitTune/issues"
+  },
+  "homepage": "https://github.com/bitcloud-ai/BitTune#readme",
+  "type": "module",
+  "bin": {
+    "bittune": "dist/bittune.js"
+  },
+  "files": [
+    "dist/**",
+    "install/**",
+    "guide/**",
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_LICENSES.md"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test:runtime": "node --import tsx --test tests/bittune-runtime-smoke.test.ts",
+    "test:watch": "node --import tsx --test --watch tests/**/*.test.ts",
+    "build:shell": "node scripts/build-shell.mjs",
+    "check:release-boundary": "node scripts/check-release-boundary.mjs",
+    "bittune": "node --import tsx packages/bittune-runtime/src/bittune.ts",
+    "package:agent": "npm run build:shell && npm run check:release-boundary && node scripts/build-release.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-ai": "0.84.1",
+    "@earendil-works/pi-client": "0.84.1",
+    "@earendil-works/pi-protocol": "0.84.1",
+    "@earendil-works/pi-tui": "0.84.1",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@silvia-odwyer/photon-node": "0.3.4",
+    "ajv": "^8.20.0",
+    "chalk": "5.6.2",
+    "cross-spawn": "7.0.6",
+    "diff": "8.0.4",
+    "glob": "13.0.6",
+    "grok-mermaid": "0.2.2",
+    "highlight.js": "10.7.3",
+    "hosted-git-info": "9.0.3",
+    "ignore": "7.0.5",
+    "jiti": "2.7.0",
+    "minimatch": "10.2.5",
+    "proper-lockfile": "4.1.2",
+    "semver": "7.8.0",
+    "typebox": "1.3.11",
+    "undici": "8.9.0",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
+    "@types/highlight.js": "^9.12.4",
+    "@types/hosted-git-info": "^3.0.5",
+    "@types/node": "22.18.6",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "^7.8.0",
+    "esbuild": "0.25.12",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  }
+}

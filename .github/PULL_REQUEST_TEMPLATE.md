@@ -24,8 +24,8 @@ Fixes #(issue 编号)
 
 ## 检查清单
 
-- [ ] 代码通过标准检查（`uv run ruff check .` 等）
-- [ ] 类型标注完整（mypy strict 通过）
+- [ ] 代码通过标准检查（`npm run check`）
+- [ ] 测试通过（`npm test`）
 - [ ] 新功能有对应测试
 - [ ] 文档已更新
 - [ ] Commit 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范

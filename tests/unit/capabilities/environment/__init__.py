@@ -1,1 +1,0 @@
-"""Environment capability tests."""

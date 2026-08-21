@@ -1,1 +1,0 @@
-"""Capacity capability tests."""

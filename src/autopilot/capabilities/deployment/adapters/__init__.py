@@ -1,1 +1,0 @@
-"""Deployment provider adapter namespace."""
