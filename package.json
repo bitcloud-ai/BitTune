@@ -23,8 +23,7 @@
     "guide/**",
     "LICENSE",
     "README.md",
-    "THIRD_PARTY_NOTICES.md",
-    "THIRD_PARTY_LICENSES.md"
+    "THIRD_PARTY_NOTICES.md"
   ],
   "engines": {
     "node": ">=22.19.0"

@@ -16,7 +16,6 @@ const paths = packed.files.map(({ path }) => path).sort();
 const expectedPaths = [
 	"LICENSE",
 	"README.md",
-	"THIRD_PARTY_LICENSES.md",
 	"THIRD_PARTY_NOTICES.md",
 	"dist/bittune.js",
 	"dist/modes/interactive/theme/dark.json",
