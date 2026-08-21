@@ -1,87 +1,73 @@
-# BitTune LLM Inference Autopilot
+# Bittune
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![CI](https://github.com/bitcloud-ai/BitTune/actions/workflows/ci.yml/badge.svg)](https://github.com/bitcloud-ai/BitTune/actions/workflows/ci.yml)
+> 面向 GPU 推理部署、压测和调优的工程智能体。
 
-BitTune是安装在GPU或其他AI加速设备环境中的模型部署与调优智能体：它自动识别设备环境，生成设备支持的模型、量化版本和推理引擎组合，由用户选择后完成一键部署、调优前测试、甜点调优、同条件复测和对比报告，并可由用户选择是否接入BitCloud Router测试环境。 
-MVP是面向单台Linux 主机、单张NVIDIA RTX 5090 32GB的大模型推理Autopilot MVP。它使用可恢复工作流程管理环境检测、容量规划、vLLM部署、EvalScope压测、Optuna搜索、候选复测和证据归档。
+Bittune 将环境检查、模型发现、服务部署、可用性探测、性能测试和证据记录组织为可审计的工程工具。Agent 根据目标、当前观测和已有运行记录选择下一步，而不是执行固定流水线。
 
-架构基线见 [MVP 技术文档](docs/llm-inference-autopilot-mvp-docs/README.md)，分阶段实施与验收条件见 [开发计划](docs/DEVELOPMENT_PLAN.md)。
+[快速开始](guide/getting-started.md) · [运行指南](guide/operations.md) · [用户文档](guide/README.md)
 
-## 开发环境
+## 功能
 
-- Python 3.12
-- uv 0.12.x
-- Linux 是真实 Runner 和 GPU 测试的唯一正式环境
-- Windows 可运行领域逻辑、Golden、Contract 和不依赖 Linux 的集成测试
+- 读取 GPU、Linux、Docker 和 NVIDIA Runtime 状态，发现本机模型缓存与已有服务。
+- 用受限配置创建并管理 vLLM 服务，独立执行启动、就绪检查、端点探测、日志读取和停止。
+- 调用 EvalScope `perf` 测量受管服务，并将原始输出保存为 Run Record 和 Artifact。
+- 从同一部署、环境、负载和配置的实测数据推导 `MeasuredOperatingPoint`，不将单次成功误报为最大容量。
+- 记录调优和容量探索实验，支持重复基准、候选比较和可追溯结论。
+- 默认不接管外部 Runtime、模型、服务或端点；写操作始终通过受限领域工具执行。
+- 通过 Capability 按需向 Agent 开放经过审查的工具集，避免把无关高权限操作暴露给每一轮会话。
+- 可选接入管理员配置的只读 MCP 服务，用于获取外部参考；实际环境事实和执行证据仍以本机工具为准。
 
-## 安装
+## 快速开始
 
-```bash
-uv sync --all-extras
-```
-
-API 、Worker 和 Host Runner 在部署时使用分离的依赖集；`--all-extras` 只用于开发和全量非 GPU 检查。
-
-## 标准检查
-
-以下命令应在仓库根目录执行；它们不会启动真实 GPU 测试。
+从 [GitHub Releases](https://github.com/bitcloud-ai/BitTune/releases) 下载 `bittune-installer-<version>.tar.gz`，在 Ubuntu x86_64 主机安装：
 
 ```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy src/autopilot runner
-uv run pytest tests/unit tests/contract
-uv run python scripts/validate_docs.py
-uv run python scripts/export_schemas.py
+tar -xzf bittune-installer-<version>.tar.gz
+cd bittune-installer-<version>
+sudo ./install-ubuntu.sh ./bittune-runtime-<version>.tgz <linux-user>
 ```
 
-GPU 测试不在默认检查中。只能在获得明确批准、GPU 0 空闲且预算已配置后执行 `tests/gpu`。
-
-## 控制面部署
-
-MVP 的交付入口是单机 Linux 上的 Docker Compose 控制面和独立的 systemd Host Runner，
-对外提供 FastAPI REST、SSE 和 OpenAPI，不包含 Web UI。部署步骤、不可变镜像 Digest、
-Secret 文件、数据库迁移以及备份恢复见 [deploy/README.md](deploy/README.md)。
-
-当前未通过 G0 固定真实 Provider Profile 时，控制面会安全启动但对环境检测、部署、压测、
-调优和证据归档保持 fail-closed；不能把 Fake Adapter 的结果当作 RTX 5090 性能结果。
-
-## CLI 交互
-
-MVP 的主交互是持续会话，而不是只能从头提交一次完整流程。官方 LangChain Agent harness 驱动模型-工具循环，Click 负责命令入口，Textual 负责终端布局、输入、Command Palette、异步 Worker 和流式事件渲染：
+配置 OpenAI-compatible Agent LLM，然后启动：
 
 ```bash
-uv run autopilot chat
+export BITTUNE_AGENT_LLM_API_KEY='your-api-key'
+bittune configure --base-url https://endpoint.example.com/v1 --model-id your-tool-capable-model
+bittune doctor
+bittune
 ```
 
-会话中直接输入自然语言即可，支持 `/approve`、`/reject`、`/status`、`/cancel`、`/new` 和 `/quit`；相同动作也注册在 Textual Command Palette。同一会话持久化到 PostgreSQL，重启 CLI 或 API 后可继续。Agent 只会看到经过 Tool Gateway、OPA 和当前阶段校验的 Autopilot 领域工具，不具备任意 Shell、Docker、Python 或文件系统能力。
+完整的前置条件、离线安装和配置说明见[快速开始](guide/getting-started.md)。
 
-项目提供基于开源 Click 框架的 `autopilot` 命令。CLI 是 REST/SSE 客户端，不复制服务端
-Graph、审批或 Provider 逻辑。先设置 API 地址和 Bearer Token；Token 不支持命令行参数，
-未设置环境变量时会通过交互式输入读取：
+## 运行要求
+
+- Linux 发行包当前支持 apt-based x86_64 主机，并携带固定 Node.js 运行时。
+- 任意 OpenAI-compatible Agent LLM endpoint 是启动 Bittune 的必需条件。
+- GPU、Docker、NVIDIA Container Toolkit、vLLM、模型缓存和 EvalScope 都是按需能力；只有目标涉及对应操作时才需要准备。
+- Bittune 不会自动安装或修改 GPU 驱动、Docker/NVIDIA Toolkit、容器镜像或模型。
+
+## 从源码运行
+
+开发环境需要 Node.js >= 22.19.0：
 
 ```bash
-export AUTOPILOT_API_URL=http://127.0.0.1:8000
-export AUTOPILOT_API_TOKEN='your-token'
-uv run autopilot --help
-uv run autopilot create '在指定 5090 上为 7B 模型优化吞吐，TTFT P95 不超过 2 秒'
-uv run autopilot status <experiment_id>
-uv run autopilot events <experiment_id>
-uv run autopilot resume <experiment_id> --decision approved --comment '人工确认部署计划'
-uv run autopilot cancel <experiment_id>
+npm install
+npm run check
+npm test
+npm run bittune
 ```
 
-`create/status/events/resume/cancel` 是兼容旧控制面客户端的单次 REST 命令；新的 Agent 主入口是上面的 `autopilot chat`，不会把用户限制在固定流程命令中。
+构建发行物：
 
-`create` 返回的 `experiment_id` 用于后续查询、恢复和取消。长时间操作通过服务端 Job
-异步执行，`events` 只输出结构化 SSE；真实 GPU Provider 未配置时服务端按契约拒绝执行，
-不会伪造性能结果。
+```bash
+npm run package:agent
+```
 
-## 贡献
+## 文档
 
-我们欢迎社区贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献指南，并查看 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) 了解社区行为准则。
+- [快速开始](guide/getting-started.md)：安装、首次配置与会话恢复。
+- [运行指南](guide/operations.md)：运行目录、Provider 前置条件、证据存储和 MCP 运维。
+- [用户文档首页](guide/README.md)：文档导航与支持范围。
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+Bittune 自有代码采用 [MIT License](LICENSE)。第三方组件的版权与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。

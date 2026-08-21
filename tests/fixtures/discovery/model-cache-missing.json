@@ -1,0 +1,9 @@
+{
+  "name": "model-cache-missing",
+  "description": "Configured model cache roots do not exist.",
+  "expected": {
+    "artifacts": [],
+    "warning_required": true,
+    "must_not_download": true
+  }
+}

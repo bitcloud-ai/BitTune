@@ -1,1 +1,0 @@
-"""Provider-independent benchmark contracts."""

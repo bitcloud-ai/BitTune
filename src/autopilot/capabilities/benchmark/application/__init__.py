@@ -1,1 +1,0 @@
-"""Deterministic benchmark application services."""

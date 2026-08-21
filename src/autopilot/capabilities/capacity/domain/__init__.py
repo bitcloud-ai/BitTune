@@ -1,1 +1,0 @@
-"""Capacity planning domain contracts."""

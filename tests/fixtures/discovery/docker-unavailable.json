@@ -1,0 +1,9 @@
+{
+  "name": "docker-unavailable",
+  "description": "Docker CLI or daemon is unavailable.",
+  "expected": {
+    "partial_observation": true,
+    "warning_code": "provider_unavailable",
+    "must_not_treat_as_product_failure": true
+  }
+}
